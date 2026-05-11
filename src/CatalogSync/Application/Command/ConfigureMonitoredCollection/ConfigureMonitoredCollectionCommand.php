@@ -1,0 +1,17 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\CatalogSync\Application\Command\ConfigureMonitoredCollection;
+
+final readonly class ConfigureMonitoredCollectionCommand
+{
+    /** @param list<string> $featureFlags FeatureFlag enum values */
+    public function __construct(
+        public string $tenantId,
+        public string $collectionGid,
+        public string $collectionName,
+        public array $featureFlags,
+        public bool $enabled = true,
+    ) {}
+}

@@ -9,6 +9,7 @@ use App\Tenancy\Domain\Model\Tenant;
 use App\Tenancy\Domain\Repository\TenantRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\Uid\UuidV7;
 
 class DoctrineTenantRepository extends ServiceEntityRepository implements TenantRepositoryInterface
 {
@@ -28,6 +29,11 @@ class DoctrineTenantRepository extends ServiceEntityRepository implements Tenant
         foreach ($tenant->pullDomainEvents() as $event) {
             $this->eventPublisher->publish($event);
         }
+    }
+
+    public function findById(UuidV7 $id): ?Tenant
+    {
+        return $this->find($id);
     }
 
     public function findByShopDomain(string $shopDomain): ?Tenant

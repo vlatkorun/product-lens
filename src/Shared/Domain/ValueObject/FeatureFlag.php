@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tenancy\Domain\ValueObject;
+namespace App\Shared\Domain\ValueObject;
 
 enum FeatureFlag: string
 {

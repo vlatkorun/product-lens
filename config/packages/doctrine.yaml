@@ -9,17 +9,25 @@ doctrine:
             tenant_status: App\Tenancy\Infrastructure\Doctrine\Type\TenantStatusType
             user_role: App\Identity\Infrastructure\Doctrine\Type\UserRoleType
             user_status: App\Identity\Infrastructure\Doctrine\Type\UserStatusType
+            sync_status: App\CatalogSync\Infrastructure\Doctrine\Type\SyncStatusType
+            product_status: App\CatalogSync\Infrastructure\Doctrine\Type\ProductStatusType
         mapping_types:
             jsonb: jsonb
             tenant_status: tenant_status
             user_role: user_role
             user_status: user_status
+            sync_status: sync_status
+            product_status: product_status
     orm:
         validate_xml_mapping: true
         naming_strategy: doctrine.orm.naming_strategy.underscore
         identity_generation_preferences:
             Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
         auto_mapping: true
+        filters:
+            tenant:
+                class: App\Shared\Infrastructure\Doctrine\Filter\TenantFilter
+                enabled: false
         mappings:
             Tenancy:
                 type: attribute
@@ -33,6 +41,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Identity/Domain/Model'
                 prefix: 'App\Identity\Domain\Model'
                 alias: Identity
+            CatalogSync:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/CatalogSync/Domain/Model'
+                prefix: 'App\CatalogSync\Domain\Model'
+                alias: CatalogSync
 
 when@test:
     doctrine:

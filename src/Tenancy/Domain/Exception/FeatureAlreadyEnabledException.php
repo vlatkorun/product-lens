@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tenancy\Domain\Exception;
 
-use App\Tenancy\Domain\ValueObject\FeatureFlag;
+use App\Shared\Domain\ValueObject\FeatureFlag;
 
 final class FeatureAlreadyEnabledException extends \DomainException
 {
