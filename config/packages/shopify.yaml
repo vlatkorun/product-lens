@@ -1,0 +1,7 @@
+services:
+    App\CatalogSync\Infrastructure\Shopify\ShopifyClient:
+        arguments:
+            $httpClient: '@http_client'
+            $apiVersion: '%env(SHOPIFY_API_VERSION)%'
+        tags:
+            - { name: symfony.client }

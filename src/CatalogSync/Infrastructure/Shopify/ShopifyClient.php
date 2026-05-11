@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace App\CatalogSync\Infrastructure\Shopify;
 
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final readonly class ShopifyClient
 {
     public function __construct(
         private HttpClientInterface $httpClient,
-        #[Autowire('%env(SHOPIFY_API_VERSION)%')]
         private string $apiVersion,
     ) {
     }
