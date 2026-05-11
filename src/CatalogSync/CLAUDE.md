@@ -79,11 +79,17 @@ Read model snapshot of a Shopify product. Not an aggregate — no domain events.
 | Command | Handler responsibility |
 |---|---|
 | `ConfigureMonitoredCollectionCommand` | Upsert `MonitoredCollection` by `(tenantId, collectionGid)`; idempotent |
-| `ProcessSyncScheduleCommand` | SELECT FOR UPDATE SKIP LOCKED eligible collections; INSERT pending `SyncJob` per collection in same transaction; dispatch `StartSyncCommand` per job |
+| `ProcessSyncScheduleCommand` | Delegates the transactional DB work to `SyncJobClaimer::claim()` (Transaction Script); receives `ClaimedSyncJobsDto` back; dispatches `StartSyncCommand` + `TenantStamp` per `ClaimedSyncJobDto` |
 | `StartSyncCommand(syncJobId)` | Load existing Pending job; call `start()`; dispatch `FetchNextPageCommand` |
 | `FetchNextPageCommand(syncJobId)` | Fetch page from Shopify; upsert products; call `recordPage()`; re-dispatch if `hasNextPage` |
 | `HandleWebhookCommand` | Single-product create/update: fetch + upsert; delete: remove from table |
 | `RescheduleStuckJobsCommand` | Find Pending jobs older than 5 min; re-dispatch `StartSyncCommand` for each |
+
+### Transaction Scripts
+
+`SyncJobClaimer` lives in the `ProcessSyncSchedule` command namespace. It is not a Messenger handler — it is a focused service injected into `ProcessSyncScheduleHandler`. It owns the raw `Doctrine\DBAL\Connection` and is the only place allowed to run the `FOR UPDATE SKIP LOCKED` SELECT + INSERT transaction. Returns `ClaimedSyncJobsDto` containing `list<ClaimedSyncJobDto>`.
+
+Do not add further DB logic to `ProcessSyncScheduleHandler` directly — extend `SyncJobClaimer` or create a new Transaction Script alongside it.
 
 ### Query
 
@@ -98,19 +104,17 @@ Symfony Scheduler (every 5 min)
     → ProcessSyncScheduleCommand
 
 ProcessSyncScheduleHandler
-    BEGIN TRANSACTION
-    SELECT mc.id, mc.tenant_id, mc.collection_gid
-    FROM   collection_sync_configs mc
-    WHERE  mc.enabled = true
-    AND    NOT EXISTS (
-               SELECT 1 FROM sync_jobs sj
-               WHERE  sj.monitored_collection_id = mc.id
-               AND    sj.status IN ('pending', 'running')
-           )
-    FOR UPDATE SKIP LOCKED
-    → INSERT sync_jobs (status='pending') for each row
-    COMMIT
-    → dispatch StartSyncCommand(syncJobId) + TenantStamp per job
+    → SyncJobClaimer::claim(now)          ← Transaction Script; owns DBAL directly
+        BEGIN TRANSACTION
+        SELECT mc.id, mc.tenant_id, mc.collection_gid
+        FROM   collection_sync_configs mc
+        WHERE  mc.enabled = true
+        AND    NOT EXISTS (active sync_jobs for this collection)
+        FOR UPDATE SKIP LOCKED
+        → INSERT sync_jobs (status='pending') for each row
+        COMMIT
+        → return ClaimedSyncJobsDto(list<ClaimedSyncJobDto(syncJobId, tenantId)>)
+    → dispatch StartSyncCommand(syncJobId) + TenantStamp per ClaimedSyncJobDto
 
 StartSyncHandler
     → findById(syncJobId)             ← job already in Pending state

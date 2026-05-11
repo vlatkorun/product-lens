@@ -440,6 +440,10 @@ scoping declare this service as a constructor dependency. No static globals.
 `FeatureFlagResolver` accepts an optional `$systemWideFlags` array injected from
 config — flags set here are enabled for all tenants without touching the database.
 
+### DTOs
+
+Data Transfer Objects used in the application layer (command namespaces, query results) must have class names ending with the `Dto` suffix — e.g. `ClaimedSyncJobsDto`, not `ClaimedSyncJobs`. Infrastructure DTOs (Shopify GraphQL response objects) follow the same rule. This applies across all bounded contexts.
+
 ### CQRS via Symfony Messenger
 
 Commands, queries, and domain events all flow through Symfony Messenger on
@@ -501,7 +505,11 @@ every repository and handler.
 
 ```
 [Shopify webhook]  ──►  HandleWebhookCommand
-[Symfony Scheduler] ──►  StartSyncCommand
+[Symfony Scheduler] ──►  ProcessSyncScheduleCommand
+                              │
+                        SyncJobClaimer::claim()
+                              │ (per eligible collection, in one transaction)
+                        StartSyncCommand dispatched
                               │
                         SyncJob::recordPage()
                               │ (on last page)
@@ -539,7 +547,9 @@ every repository and handler.
   Shopify Admin API after `CompleteOAuth` succeeds)
 - Tenant runtime isolation: Doctrine SQL filter + PostgreSQL Row Level Security
 
-**CatalogSync** — all of it
+**CatalogSync**
+- Unit and integration tests for all commands and handlers
+- `SyncJobClaimer` integration test (requires real DB + `FOR UPDATE SKIP LOCKED` verification)
 
 **ImageAudit** — all of it
 

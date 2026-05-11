@@ -16,6 +16,6 @@ if ($_SERVER['APP_DEBUG']) {
 }
 
 $encryptionKeyHex = $_SERVER['APP_ENCRYPTION_KEY'] ?? '';
-if (\strlen($encryptionKeyHex) === 64) {
-    EncryptedStringType::configure(\hex2bin($encryptionKeyHex));
+if (strlen($encryptionKeyHex) === 64) {
+    EncryptedStringType::configure(hex2bin($encryptionKeyHex));
 }
