@@ -1,8 +1,17 @@
-# Skill: Update CLAUDE.md
+# Skill: Update CLAUDE.md (Modular Monolith / DDD)
 
 ## Purpose
 
-This skill instructs you on how to surgically update `CLAUDE.md` (or any scoped rules file under `.claude/rules/`) after codebase changes, planning sessions, PR reviews, or newly discovered conventions — without bloating or destabilising the existing file.
+This skill instructs you on how to surgically update documentation context files after codebase changes, planning sessions, PR reviews, or newly discovered conventions.
+
+The project is a **Symfony 7.4 modular monolith with DDD**. Each module is a bounded context and owns its own `CLAUDE.md`. There are therefore two tiers of context files:
+
+| File                      | Scope                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| `/CLAUDE.md`              | Project-wide: architecture, global conventions, cross-cutting concerns, module index |
+| `/src/<Module>/CLAUDE.md` | Module-specific: domain model, flows, use cases, internal conventions                |
+
+**The cardinal rule:** detail lives in the module. The root file holds summaries and cross-cutting concerns only.
 
 ---
 
@@ -10,149 +19,259 @@ This skill instructs you on how to surgically update `CLAUDE.md` (or any scoped 
 
 Trigger this skill when:
 
-- A task, feature, or refactor has just completed and introduced new conventions, constraints, or architectural decisions
-- A planning session produced decisions that should persist across sessions (tech choices, module boundaries, naming patterns)
-- A PR review or code review revealed an undocumented pattern or rule
-- You notice yourself repeating the same instruction to Claude across sessions
-- An instruction already in `CLAUDE.md` is no longer accurate or has drifted from the codebase reality
-- A new integration, dependency, or workflow has been added that Claude needs to be aware of
+- A task, feature, or refactor has completed and introduced new domain behaviour, constraints, or architectural decisions
+- A planning session produced decisions that should persist across sessions (tech choices, module boundaries, naming patterns, flow changes)
+- A PR or code review revealed an undocumented convention or anti-pattern
+- A new module (bounded context) has been created or an existing one has been renamed, merged, or split
+- A cross-cutting concern has been introduced (shared kernel, new infrastructure service, new global convention)
+- An instruction in either CLAUDE.md file is no longer accurate or has drifted from the codebase
 
 ---
 
-## Step 1 — Read the Current File First
+## Step 1 — Classify the Change
 
-Before writing anything, always read the full current state of the file:
+Before reading any file, determine the nature of the change:
+
+### Module-Scoped Change
+
+The change lives inside a single bounded context. Examples:
+
+- New domain event, aggregate, value object, or repository added to a module
+- A use case or application service flow has changed within one module
+- A new external integration is owned exclusively by one module (e.g. a PSP adapter inside `Payment`)
+- Internal conventions specific to one module (naming, validation rules, state machine transitions)
+
+→ **Detail goes into `/src/<Module>/CLAUDE.md`. A one-line summary goes into `/CLAUDE.md` under the module's entry.**
+
+### Cross-Cutting Change
+
+The change affects multiple modules, the shared kernel, global infrastructure, or project-wide conventions. Examples:
+
+- A new shared interface, base class, or trait added to the shared kernel
+- A new global Symfony convention (event subscriber pattern, middleware, serializer config)
+- A change to how modules communicate (domain events, message bus, shared DTOs)
+- Global code style, testing strategy, or workflow change
+- A new environment variable, infrastructure service, or deployment concern
+- A new module being added (creates a root entry + a new module CLAUDE.md)
+
+→ **Goes directly into `/CLAUDE.md` in the appropriate section.**
+
+---
+
+## Step 2 — Read Before Writing
+
+### For a module-scoped change, read both files:
+
+```bash
+cat CLAUDE.md
+cat src/<Module>/CLAUDE.md
+```
+
+### For a cross-cutting change, read only the root:
 
 ```bash
 cat CLAUDE.md
 ```
 
-If scoped rules files exist, check those too:
+If a new module is being documented for the first time, check whether a `CLAUDE.md` already exists inside it:
 
 ```bash
-ls .claude/rules/
-cat .claude/rules/<relevant-file>.md
+ls src/<Module>/CLAUDE.md 2>/dev/null || echo "Does not exist yet"
 ```
 
 You must understand what is already documented before adding or changing anything. Never write blind.
 
 ---
 
-## Step 2 — Identify the Right Section
+## Step 3 — Routing Decision
 
-After reading, determine where the new information belongs:
+After classifying and reading, follow the correct path:
 
-### Case A — A Relevant Section Already Exists
+### Path A — Module-Scoped: Update `/src/<Module>/CLAUDE.md`
 
-Update that section in-place. Do **not** create a duplicate or a new section with a slightly different heading. Merge the new information into the existing block, keeping the section concise.
+1. Find the section in the module's CLAUDE.md that covers this area.
+2. If a relevant section exists → update it in-place. Do not create a duplicate section.
+3. If no relevant section exists → create a new `## Section` with a domain-specific heading.
+4. Then go to the root `/CLAUDE.md` and find the module's summary entry (see format below). Update the one-line summary only if the module's responsibility or key behaviour has materially changed.
 
-Examples of existing sections you might update:
+**Module entry format in root CLAUDE.md:**
 
-- `# Architecture` or `# Project Structure` → new module, new service, refactored boundaries
-- `# Code Style` → new linting rule, naming convention, pattern preference
-- `# Commands` or `# Workflow` → new script, changed test command, new CI step
-- `# Integrations` or `# External Services` → new API, new PSP, new third-party dependency
-- `# Constraints` or `# Do Not` → newly discovered anti-pattern or hard rule
-- `# Database` → schema change, new migration pattern, new ORM convention
+```markdown
+## Modules
 
-### Case B — No Relevant Section Exists
+### Payment
 
-Create a new `## Section` with a clear, specific heading. Insert it in a logical position — group related concepts together. Do not append everything at the bottom blindly.
+Handles payment initiation, PSP routing, 3DS flows, and webhook reconciliation. See @src/Payment/CLAUDE.md.
+
+### Order
+
+Manages order lifecycle from creation to fulfilment. See @src/Order/CLAUDE.md.
+```
+
+The summary must be one to two sentences maximum. It describes _what_ the module owns, not _how_ it works. The how lives in the module's own file.
+
+---
+
+### Path B — Cross-Cutting: Update `/CLAUDE.md`
+
+1. Find the section in the root CLAUDE.md that covers this area.
+2. If a relevant section exists → update it in-place.
+3. If no relevant section exists → create a new `## Section` and insert it in a logical position. Do not append blindly at the bottom.
 
 **New section heading guidelines:**
 
-- Be specific: `## Checkout Flow` not `## Features`
-- Use domain language from the codebase: `## Webhook Processing`, `## Tenant Isolation`, `## 3DS Authentication`
-- Avoid generic headings that could swallow unrelated content over time
+- Be specific: `## Domain Event Bus` not `## Events`
+- Use the project's own domain language
+- Avoid headings generic enough to swallow unrelated content over time
 
 ---
 
-## Step 3 — Write the Update
+### Path C — New Module
 
-Follow these rules when writing content:
+1. Create `/src/<NewModule>/CLAUDE.md` using the Module CLAUDE.md Template below.
+2. Add a new entry for the module under `## Modules` in the root `/CLAUDE.md` with a one-to-two sentence summary and a `@src/<NewModule>/CLAUDE.md` reference.
 
-### Keep it actionable and decision-level
+---
 
-Only include things that would cause Claude to make a **wrong decision** if omitted. Do not document obvious things or things Claude can infer from the code itself.
+## Step 4 — Writing Rules
 
-Good:
+Apply these rules regardless of which file you are editing:
+
+### Actionable and decision-level only
+
+Only include things that would cause Claude to make a **wrong decision** if omitted. Do not document what Claude can infer from the code.
+
+Good (module CLAUDE.md):
 
 ```
-- All PSP adapters implement PaymentGatewayInterface — never call PSP SDKs directly from controllers
+- PaymentIntent is always created before redirecting to the PSP — never redirect with a raw amount
+- Refunds are processed asynchronously via RefundRequested domain event, not inline
 ```
 
-Bad:
+Bad (root CLAUDE.md):
 
 ```
-- We use Stripe for payments
+- The Payment module uses Stripe
 ```
 
-### Use bullets for rules, prose for context
+### Rules as bullets, context as prose
 
-Rules and constraints → bullet points.  
-Architectural rationale or non-obvious context → one or two sentences of prose before the bullets.
+Non-obvious architectural rationale → one or two sentences of prose.
+Constraints, conventions, and rules → bullet points.
 
-### Use emphasis sparingly
+### Emphasis sparingly
 
-Reserve `IMPORTANT:` or `YOU MUST` for rules that are genuinely critical and frequently violated. If everything is marked important, nothing is.
+Reserve `IMPORTANT:` or `YOU MUST` for rules that are critical and genuinely likely to be violated. If everything is emphasised, nothing is.
 
 ### Reference, don't duplicate
 
-If the detail lives in another file, link to it rather than copying it:
+If the detail already lives somewhere, link to it:
 
 ```
-See @docs/deployment.md for environment variable requirements.
+See @src/Payment/CLAUDE.md for PSP routing logic.
+See @docs/adr/0012-domain-events.md for the event bus decision.
 ```
 
 ---
 
-## Step 4 — Prune as You Go
+## Step 5 — Prune as You Go
 
-Every update is an opportunity to clean. While editing the relevant section, also:
+Every update is an opportunity to clean. While editing, also:
 
-- Remove instructions that no longer apply (deleted features, replaced dependencies, resolved workarounds)
-- Consolidate two similar bullets into one if they express the same rule
-- Clarify ambiguous phrasing that previously caused Claude to ask redundant questions
-- Move highly specific or rarely-needed content to a scoped `.claude/rules/<domain>.md` file instead
+- Remove instructions that no longer apply (deleted aggregates, replaced services, resolved workarounds)
+- Consolidate two bullets that express the same rule
+- Clarify phrasing that caused Claude to ask unnecessary questions
+- If something in the root CLAUDE.md has grown too specific to one module, move it into that module's CLAUDE.md and replace it with a reference
 
-**Size check:** After updating, ask yourself — is every remaining line one whose removal would cause Claude to make a mistake? If not, cut it.
+**Size check (root CLAUDE.md):** Every line should be either a cross-cutting concern or a module summary. If it is neither, it does not belong here.
+
+**Size check (module CLAUDE.md):** Every line should be something that would cause a wrong decision about this bounded context if missing. If not, cut it.
 
 ---
 
-## Step 5 — Validate the Result
+## Step 6 — Validate
 
 After making the update:
 
-1. Re-read the full file to confirm it reads coherently from top to bottom
-2. Check that the updated section does not contradict another section
-3. If the file has grown significantly, consider whether some content should move to a scoped rules file (`.claude/rules/`) or a dedicated skill (`SKILL.md`)
-4. Optionally, ask Claude to review: _"Review this CLAUDE.md and flag anything obsolete, redundant, or ambiguous"_
+1. Re-read the edited file top to bottom for coherence
+2. Confirm no section contradicts another section in the same file
+3. Confirm the root CLAUDE.md has not accumulated module-specific detail that belongs in a module file
+4. Confirm the module CLAUDE.md has not accumulated cross-cutting rules that belong in the root
 
 ---
 
-## Common Section Reference
+## Module CLAUDE.md Template
 
-The following are common sections found in project `CLAUDE.md` files. Use them as a guide when creating new sections, but only include what is genuinely necessary:
+Use this structure when creating a new module's CLAUDE.md. Only include sections that are relevant — do not add empty sections.
 
-| Section                | What belongs here                                          |
-| ---------------------- | ---------------------------------------------------------- |
-| `## Project Overview`  | One-liner description, tech stack, entry points            |
-| `## Commands`          | Build, test, lint, dev server commands                     |
-| `## Architecture`      | Module structure, layer boundaries, key patterns           |
-| `## Code Style`        | Language-specific conventions not covered by linters       |
-| `## Workflow`          | Git conventions, PR process, branch naming                 |
-| `## Database`          | ORM patterns, migration conventions, naming                |
-| `## External Services` | APIs, PSPs, third-party dependencies and their constraints |
-| `## Testing`           | Test framework, coverage expectations, what to test        |
-| `## Constraints`       | Hard rules — things Claude must never do                   |
-| `## Environment`       | Env vars, secrets handling, local setup notes              |
+```markdown
+# <Module Name>
+
+<One paragraph: what this bounded context owns, its core responsibility, and where it sits in the domain.>
+
+## Domain Model
+
+- **<Aggregate>** — <what it represents and its invariants>
+- **<Value Object>** — <what it encapsulates>
+- **<Domain Event>** — <when it is raised and who listens>
+
+## Key Flows
+
+### <Flow Name (e.g. Payment Initiation)>
+
+<Short prose describing the happy path and any non-obvious branching.>
+
+1. Step one
+2. Step two
+3. Step three
+
+## Application Layer
+
+- Commands and queries live in `Application/`
+- <Any non-obvious conventions: handler naming, DTO structure, validation approach>
+
+## Infrastructure
+
+- <Repository implementations and their persistence strategy>
+- <External service adapters owned by this module>
+- <Any Symfony-specific wiring: tagged services, compiler passes, event subscribers>
+
+## Constraints
+
+- <Hard rules that must never be violated within this module>
+- <Anti-patterns that have been explicitly rejected and why>
+
+## Cross-Module Dependencies
+
+- Receives: `<EventName>` from `<OtherModule>`
+- Emits: `<EventName>` consumed by `<OtherModule>`
+- IMPORTANT: never import from another module's domain layer directly — use shared kernel types or domain events only
+```
+
+---
+
+## Root CLAUDE.md Sections Reference
+
+| Section                         | What belongs here                                                                |
+| ------------------------------- | -------------------------------------------------------------------------------- |
+| `## Project Overview`           | Stack, architecture style, entry point                                           |
+| `## Modules`                    | One-to-two sentence summary per bounded context + `@src/<Module>/CLAUDE.md` link |
+| `## Shared Kernel`              | Shared interfaces, base classes, value objects used across modules               |
+| `## Cross-Module Communication` | How modules talk: domain events, message bus, shared DTOs                        |
+| `## Commands`                   | Build, test, lint, console commands                                              |
+| `## Code Style`                 | Project-specific conventions not enforced by linters                             |
+| `## Workflow`                   | Git conventions, PR process, branch naming                                       |
+| `## Infrastructure`             | Global Symfony config, DI conventions, environment variables                     |
+| `## Testing`                    | Test strategy, what to test per layer, framework used                            |
+| `## Constraints`                | Project-wide hard rules — things Claude must never do anywhere                   |
 
 ---
 
 ## Gotchas
 
-- **Do not auto-generate the full file** — always edit surgically. Regenerating from scratch loses accumulated knowledge.
-- **Avoid instruction inflation** — each new rule competes with all existing rules. Research suggests LLMs begin ignoring all instructions uniformly as count increases, not just the newer ones.
-- **Scoped rules beat global rules** — if a rule only applies to one part of the codebase (e.g. API layer, test files), put it in `.claude/rules/<domain>.md` with a `paths:` frontmatter filter rather than the root `CLAUDE.md`.
-- **Do not document the obvious** — Claude knows what Symfony is. Do not explain the framework; document your project's specific decisions.
-- **Stale rules are worse than no rules** — an incorrect instruction actively misleads. Remove outdated content immediately when it no longer applies.
+- **Never put flow or domain detail in the root CLAUDE.md** — one-to-two sentence summaries only. The detail belongs in the module.
+- **Never duplicate between root and module** — if it is in the module's file, the root references it, not repeats it.
+- **Module boundaries are hard** — if a change touches two modules, document it as a cross-cutting concern in the root and reference both module files.
+- **Do not auto-regenerate** — always edit surgically. Regenerating from scratch destroys accumulated knowledge.
+- **Stale rules actively mislead** — an outdated instruction is worse than no instruction. Remove it immediately when the underlying reality changes.
+- **Instruction count matters** — the more instructions exist, the less reliably any single one is followed. Keep both files as short as possible.

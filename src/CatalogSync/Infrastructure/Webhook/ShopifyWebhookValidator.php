@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\CatalogSync\Infrastructure\Webhook;
 
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 
 final readonly class ShopifyWebhookValidator
 {
-    public function __construct(private string $webhookSecret) {}
+    public function __construct(
+        #[Autowire(env: 'SHOPIFY_WEBHOOK_SECRET')]
+        private string $webhookSecret,
+    ) {}
 
     public function validate(Request $request): bool
     {

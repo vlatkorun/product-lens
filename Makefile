@@ -1,7 +1,7 @@
 .PHONY: analyse fix test test-unit test-integration
 
 analyse:
-	php vendor/bin/phpstan analyse
+	php -d memory_limit=1G vendor/bin/phpstan analyse
 
 fix:
 	php vendor/bin/php-cs-fixer fix
