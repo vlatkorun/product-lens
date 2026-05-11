@@ -56,28 +56,49 @@ dispatches `RunAuditCommand`. The two contexts never import each other's namespa
 ```
 src/
 ├── Shared/
-│   └── Domain/
-│       ├── Model/AggregateRoot.php
-│       ├── ValueObject/TenantId.php
-│       ├── ValueObject/Ulid.php
-│       ├── Event/DomainEvent.php
-│       └── Clock/ClockInterface.php
+│   ├── Domain/
+│   │   ├── Model/AggregateRoot.php              ← base class: raise(), pullDomainEvents()
+│   │   ├── Event/DomainEvent.php                ← marker interface (sync dispatch)
+│   │   ├── Event/AsyncDomainEvent.php           ← marker interface (async dispatch via Messenger)
+│   │   ├── ValueObject/TenantId.php             ← planned
+│   │   └── Clock/ClockInterface.php             ← planned
+│   └── Infrastructure/
+│       ├── Doctrine/Type/
+│       │   ├── EncryptedStringType.php          ← sodium-encrypted TEXT columns
+│       │   └── JsonbType.php                    ← JSONB column type
+│       └── Event/
+│           └── DomainEventPublisher.php         ← routes sync/async events after repository save()
 │
 ├── Tenancy/
 │   ├── Domain/
 │   │   ├── Model/Tenant.php                     ← aggregate root
-│   │   ├── ValueObject/FeatureFlag.php           ← backed enum
+│   │   ├── ValueObject/FeatureFlag.php           ← backed enum: ImageAudit, AiImageAudit
+│   │   ├── ValueObject/TenantStatus.php          ← backed enum: Active, Suspended, Uninstalled
+│   │   ├── ValueObject/ShopifyTokenResult.php    ← access_token + scope from OAuth token exchange
 │   │   ├── Repository/TenantRepositoryInterface.php
-│   │   ├── Service/FeatureFlagResolver.php
-│   │   ├── Event/{TenantCreated,FeatureEnabled,FeatureDisabled}.php
-│   │   └── Exception/{TenantNotFoundException,FeatureAlreadyEnabledException}.php
+│   │   ├── Event/TenantCreated.php
+│   │   ├── Event/TenantReinstalled.php           ← raised when an Uninstalled tenant re-installs
+│   │   ├── Event/{FeatureEnabled,FeatureDisabled}.php  ← planned
+│   │   ├── Service/OAuth/OAuthStateStoreInterface.php
+│   │   ├── Service/OAuth/ShopifyOAuthClientInterface.php
+│   │   ├── Service/OAuth/ShopifyHmacValidatorInterface.php
+│   │   ├── Service/FeatureFlagResolver.php       ← planned
+│   │   ├── Exception/FeatureAlreadyEnabledException.php
+│   │   ├── Exception/InvalidOAuthCallbackException.php
+│   │   └── Exception/TenantNotFoundException.php  ← planned
 │   ├── Application/
-│   │   ├── Command/CreateTenant/{Command,Handler}.php
-│   │   └── Query/GetTenant/{Query,Handler}.php
+│   │   ├── Command/OAuth/BeginOAuth/{Command,Handler}.php
+│   │   ├── Command/OAuth/CompleteOAuth/{Command,Handler}.php
+│   │   ├── Command/CreateTenant/{Command,Handler}.php  ← planned
+│   │   └── Query/GetTenant/{Query,Handler}.php         ← planned
 │   └── Infrastructure/
+│       ├── Doctrine/Type/TenantStatusType.php   ← maps PostgreSQL tenant_status enum
+│       ├── Http/ShopifyOAuthController.php       ← GET /shopify/install, GET /shopify/callback
 │       ├── Persistence/DoctrineTenantRepository.php
-│       ├── Http/ShopifyOAuthController.php
-│       └── Symfony/TenantContextMiddleware.php   ← resolves TenantId per request
+│       ├── Shopify/ShopifyOAuthClient.php        ← implements ShopifyOAuthClientInterface
+│       ├── Shopify/ShopifyHmacValidator.php      ← implements ShopifyHmacValidatorInterface
+│       ├── Symfony/OAuthStateStore.php           ← implements OAuthStateStoreInterface via cache.app
+│       └── Symfony/TenantContextMiddleware.php   ← planned
 │
 ├── CatalogSync/
 │   ├── Domain/
@@ -135,9 +156,56 @@ src/
   dispatched transactionally.
 - **Value objects are immutable.** Mutation returns a new instance. `SyncCursor`
   is replaced wholesale on each page (`SyncJob::recordPage()`), never mutated.
-- **`FeatureFlag`** is a backed enum (`string`). Stored as a JSON array on the
-  `Tenant` record. Serialized via Doctrine lifecycle hooks (`@PostLoad` /
-  `@PrePersist`).
+- **`FeatureFlag`** is a backed enum (`string`). Current cases: `ImageAudit`,
+  `AiImageAudit`. Stored as a JSONB array on the `Tenant` record. Serialized via
+  Doctrine lifecycle hooks (`PostLoad` / `PrePersist` / `PreUpdate`) — the mapped
+  property `$featureFlagsRaw` holds `string[]`; the transient `$featureFlags` holds
+  `FeatureFlag[]` and is the one used in domain logic.
+
+### IDs
+
+All aggregate roots use **UUIDv7** (`Symfony\Component\Uid\UuidV7`) as their
+primary key. IDs are **app-assigned** in the factory method (`$entity->id = new UuidV7()`)
+using `#[ORM\GeneratedValue(strategy: 'NONE')]` — the aggregate knows its own ID
+from birth, which allows domain events to carry the ID before the first `flush()`.
+
+### Doctrine mapping
+
+Each bounded context registers its own mapping block in `config/packages/doctrine.yaml`
+pointing to its `Domain/Model/` directory. The default `src/Entity/` Symfony scaffolding
+is not used.
+
+```yaml
+# config/packages/doctrine.yaml
+orm:
+  mappings:
+    Tenancy:
+      type: attribute
+      dir: '%kernel.project_dir%/src/Tenancy/Domain/Model'
+      prefix: 'App\Tenancy\Domain\Model'
+```
+
+**DBAL 4 custom types** — DBAL 4 dropped comment-based type disambiguation. Any
+PostgreSQL-specific column type needs a custom Doctrine type class + a `mapping_types`
+entry so the schema introspector can round-trip correctly. Current custom types:
+
+| Doctrine type      | Class                                      | SQL type        |
+|--------------------|--------------------------------------------|-----------------|
+| `encrypted_string` | `Shared/Infrastructure/Doctrine/Type/EncryptedStringType` | `TEXT` |
+| `jsonb`            | `Shared/Infrastructure/Doctrine/Type/JsonbType`           | `JSONB` |
+| `tenant_status`    | `Tenancy/Infrastructure/Doctrine/Type/TenantStatusType`   | `tenant_status` (PG enum) |
+
+### Encrypted columns
+
+Shopify API credentials (`shopify_access_token`, `shopify_webhook_secret`) are
+encrypted at rest using `sodium_crypto_secretbox` (XSalsa20-Poly1305). A fresh
+random nonce is generated per write; the stored value is `base64url(nonce ‖ ciphertext)`.
+
+Key is loaded from `APP_ENCRYPTION_KEY` env var — a 64-character hex string (32 bytes).
+Generate with: `php -r "echo sodium_bin2hex(random_bytes(32)), PHP_EOL;"`
+
+`APP_ENCRYPTION_KEY` is kept separate from `APP_SECRET` so the DB encryption key
+can be rotated independently of Symfony's framework secret (CSRF, cookies, sessions).
 
 ### CatalogSync: cursor tracking
 
@@ -175,6 +243,42 @@ invoked by a separate `RunAiAuditCommand`/`RunAiAuditHandler`, dispatched by
 the `FeatureFlag::AI_IMAGE_AUDIT` flag before proceeding — if disabled for the
 tenant, it returns early without error.
 
+### Shopify OAuth flow
+
+Merchant installation runs the standard OAuth 2.0 authorization code grant.
+Two routes live in `ShopifyOAuthController`:
+
+| Route | Handler | Responsibility |
+|---|---|---|
+| `GET /shopify/install?shop=` | `BeginOAuthCommand` | Validate domain, generate nonce, store in cache, redirect to Shopify |
+| `GET /shopify/callback` | `CompleteOAuthCommand` | Verify HMAC, consume nonce, exchange code, upsert Tenant |
+
+**BeginOAuth** (`Application/Command/OAuth/BeginOAuth/`):
+- Generates a 16-byte random `state` nonce via `OAuthStateStoreInterface::store()`.
+- Returns the Shopify authorization URL (handler returns `string`; controller gets it
+  via Messenger's `HandleTrait`).
+
+**CompleteOAuth** (`Application/Command/OAuth/CompleteOAuth/`):
+1. `ShopifyHmacValidatorInterface::validate()` — HMAC-SHA256 over sorted query params
+   with `%` → `%25` and `&` → `%26` escaping per Shopify spec.
+2. `OAuthStateStoreInterface::consume()` — retrieves and deletes the nonce; throws
+   `InvalidOAuthCallbackException` if expired or unknown.
+3. `ShopifyOAuthClientInterface::exchangeCodeForToken()` — POSTs to
+   `https://{shop}/admin/oauth/access_token`; returns `ShopifyTokenResult`.
+4. Upserts `Tenant`: creates new via `Tenant::create()`, or calls `Tenant::reinstall()`
+   if previously `Uninstalled` (which raises `TenantReinstalled`).
+5. `Tenant::storeCredentials(accessToken, webhookSecret, scope)` — encrypted at rest.
+
+**State storage** (`OAuthStateStore`): PSR-6 `cache.app` (Redis in production),
+10-minute TTL. Atomic get-and-delete on `consume()`.
+
+**Invariants**: `InvalidOAuthCallbackException` is thrown (→ HTTP 400) on HMAC
+mismatch, expired/unknown state, or shop domain mismatch between the callback and
+the stored nonce.
+
+**Required env vars**: `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_OAUTH_SCOPES`,
+`SHOPIFY_OAUTH_REDIRECT_URI`, `SHOPIFY_WEBHOOK_SECRET`.
+
 ### Multitenancy
 
 `TenantContextMiddleware` (Symfony Messenger middleware) resolves `TenantId` from
@@ -189,8 +293,35 @@ config — flags set here are enabled for all tenants without touching the datab
 
 Commands, queries, and domain events all flow through Symfony Messenger on
 separate buses (or separate transports on the same bus). Handlers are
-autowired. Repository `save()` flushes the entity manager and dispatches any
-domain events collected via `pullDomainEvents()`.
+autowired via `#[AsMessageHandler]`.
+
+### Domain event dispatch: sync vs async
+
+After every `repository->save()`, domain events collected by `pullDomainEvents()`
+are handed to `DomainEventPublisher` (`Shared/Infrastructure/Event/`), which routes
+them based on the event's type:
+
+- Implements only `DomainEvent` → dispatched via **Symfony EventDispatcher** (in-process,
+  synchronous, handled immediately in the same request/worker turn).
+- Implements `AsyncDomainEvent extends DomainEvent` → dispatched via **Symfony Messenger**
+  and routed to the `async` RabbitMQ transport via `messenger.yaml`.
+
+```php
+// sync — handled inline by an EventDispatcher listener
+final readonly class TenantCreated implements DomainEvent { ... }
+
+// async — pushed to RabbitMQ, consumed by a Messenger worker
+final readonly class SyncJobCompleted implements AsyncDomainEvent { ... }
+```
+
+```yaml
+# config/packages/messenger.yaml
+routing:
+    'App\Shared\Domain\Event\AsyncDomainEvent': async
+```
+
+This keeps the choice of sync vs async at the event definition level and out of
+every repository and handler.
 
 ---
 
@@ -198,9 +329,8 @@ domain events collected via `pullDomainEvents()`.
 
 - A `Tenant`'s `shopDomain` must end with `.myshopify.com`. Enforced in
   `Tenant::create()`.
-- Enabling an already-enabled `FeatureFlag` throws
-  `FeatureAlreadyEnabledException`. Disabling an absent flag is a no-op
-  (idempotent).
+- Enabling an already-enabled `FeatureFlag` throws `FeatureAlreadyEnabledException`.
+  Disabling an absent flag is a no-op (idempotent).
 - `AuditFinding` is append-only. Once recorded on an `AuditReport`, findings are
   never mutated or deleted — only new findings can be appended.
 - A `SyncJob` in `RUNNING` status cannot be started again. Starting a new sync for
@@ -238,8 +368,14 @@ domain events collected via `pullDomainEvents()`.
 
 ## What is not yet built
 
+- Tenancy application layer: `CreateTenant` command/handler, `GetTenant` query/handler
+- Tenancy infrastructure: `TenantContextMiddleware`, `FeatureFlagResolver`
+- Post-OAuth shop metadata fetch (populate `name`, `email`, `currencyCode`, etc. via
+  Shopify Admin API after `CompleteOAuth` succeeds)
+- Tenant runtime isolation: Doctrine SQL filter + PostgreSQL Row Level Security
+- CatalogSync bounded context (all of it)
+- ImageAudit bounded context (all of it)
 - Shopify App UI (React / App Bridge) for toggling feature flags per tenant
 - Report export (CSV / PDF)
 - Notification layer (email / Slack when audit finds issues)
 - Retry / dead-letter handling for failed sync jobs
-- Webhook HMAC validation hardening (placeholder exists in `ShopifyWebhookValidator`)

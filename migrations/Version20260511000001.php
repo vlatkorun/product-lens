@@ -30,8 +30,8 @@ final class Version20260511000001 extends AbstractMigration
                 shop_handle            VARCHAR(255) NOT NULL,
                 shop_domain            VARCHAR(255) NOT NULL,
                 email                  VARCHAR(255) DEFAULT NULL,
-                currency_code          CHAR(3)      DEFAULT NULL,
-                country_code           CHAR(2)      DEFAULT NULL,
+                currency_code          VARCHAR(3)   DEFAULT NULL,
+                country_code           VARCHAR(2)   DEFAULT NULL,
                 timezone               VARCHAR(100) DEFAULT NULL,
                 shopify_plan           VARCHAR(100) DEFAULT NULL,
                 shopify_scope          TEXT         DEFAULT NULL,
@@ -53,11 +53,6 @@ final class Version20260511000001 extends AbstractMigration
         $this->addSql('CREATE UNIQUE INDEX tenants_shop_handle_uq ON tenants (shop_handle)');
         $this->addSql('CREATE INDEX tenants_status_idx ON tenants (status)');
         $this->addSql('CREATE INDEX tenants_installed_at_idx ON tenants (installed_at)');
-
-        // Doctrine type hints for encrypted columns — allows doctrine:migrations:diff
-        // to recognise these as encrypted_string rather than plain text columns
-        $this->addSql("COMMENT ON COLUMN tenants.shopify_access_token IS '(DC2Type:encrypted_string)'");
-        $this->addSql("COMMENT ON COLUMN tenants.shopify_webhook_secret IS '(DC2Type:encrypted_string)'");
     }
 
     public function down(Schema $schema): void

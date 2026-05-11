@@ -6,7 +6,8 @@ namespace App\Tenancy\Domain\Model;
 
 use App\Shared\Domain\Model\AggregateRoot;
 use App\Tenancy\Domain\Event\TenantCreated;
-use App\Tenancy\Domain\Repository\TenantRepositoryInterface;
+use App\Tenancy\Domain\Event\TenantReinstalled;
+use App\Tenancy\Domain\Exception\FeatureAlreadyEnabledException;
 use App\Tenancy\Domain\ValueObject\FeatureFlag;
 use App\Tenancy\Domain\ValueObject\TenantStatus;
 use App\Tenancy\Infrastructure\Persistence\DoctrineTenantRepository;
@@ -18,6 +19,7 @@ use Symfony\Component\Uid\UuidV7;
 #[ORM\UniqueConstraint(name: 'tenants_shop_domain_uq', fields: ['shopDomain'])]
 #[ORM\UniqueConstraint(name: 'tenants_shop_handle_uq', fields: ['shopHandle'])]
 #[ORM\Index(name: 'tenants_status_idx', fields: ['status'])]
+#[ORM\Index(name: 'tenants_installed_at_idx', fields: ['installedAt'])]
 #[ORM\HasLifecycleCallbacks]
 class Tenant extends AggregateRoot
 {
@@ -53,7 +55,7 @@ class Tenant extends AggregateRoot
     #[ORM\Column(name: 'shopify_scope', type: 'text', nullable: true)]
     private ?string $shopifyScope = null;
 
-    #[ORM\Column(columnDefinition: "tenant_status NOT NULL DEFAULT 'active'", enumType: TenantStatus::class)]
+    #[ORM\Column(type: 'tenant_status', options: ['default' => 'active'])]
     private TenantStatus $status;
 
     #[ORM\Column(name: 'installed_at', type: 'datetime_immutable', nullable: true)]
@@ -74,11 +76,11 @@ class Tenant extends AggregateRoot
     #[ORM\Column(name: 'shopify_webhook_secret', type: 'encrypted_string', nullable: true)]
     private ?string $shopifyWebhookSecret = null;
 
-    #[ORM\Column(type: 'json', columnDefinition: "JSONB NOT NULL DEFAULT '{}'")]
+    #[ORM\Column(type: 'jsonb', options: ['default' => '{}'])]
     private array $configuration = [];
 
     /** @var string[] raw backing values for $featureFlags, persisted to DB */
-    #[ORM\Column(name: 'feature_flags', type: 'json', columnDefinition: "JSONB NOT NULL DEFAULT '[]'")]
+    #[ORM\Column(name: 'feature_flags', type: 'jsonb', options: ['default' => '[]'])]
     private array $featureFlagsRaw = [];
 
     /** @var FeatureFlag[] transient — hydrated from $featureFlagsRaw on PostLoad */
@@ -155,7 +157,7 @@ class Tenant extends AggregateRoot
     public function enableFeature(FeatureFlag $flag): void
     {
         if ($this->hasFeature($flag)) {
-            return;
+            throw FeatureAlreadyEnabledException::forFlag($flag);
         }
 
         $this->featureFlags[] = $flag;
@@ -228,6 +230,13 @@ class Tenant extends AggregateRoot
     {
         $this->status = TenantStatus::Active;
         $this->uninstalledAt = null;
+    }
+
+    public function reinstall(\DateTimeImmutable $at): void
+    {
+        $this->reactivate();
+        $this->installedAt = $at;
+        $this->raise(new TenantReinstalled($this->id->toRfc4122(), $this->shopDomain, $at));
     }
 
     // --- Accessors ---

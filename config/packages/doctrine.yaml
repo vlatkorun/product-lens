@@ -1,10 +1,15 @@
 doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
-        server_version: '16'
+        server_version: '18'
         profiling_collect_backtrace: '%kernel.debug%'
         types:
             encrypted_string: App\Shared\Infrastructure\Doctrine\Type\EncryptedStringType
+            jsonb: App\Shared\Infrastructure\Doctrine\Type\JsonbType
+            tenant_status: App\Tenancy\Infrastructure\Doctrine\Type\TenantStatusType
+        mapping_types:
+            jsonb: jsonb
+            tenant_status: tenant_status
     orm:
         validate_xml_mapping: true
         naming_strategy: doctrine.orm.naming_strategy.underscore
@@ -12,12 +17,6 @@ doctrine:
             Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
         auto_mapping: true
         mappings:
-            App:
-                type: attribute
-                is_bundle: false
-                dir: '%kernel.project_dir%/src/Entity'
-                prefix: 'App\Entity'
-                alias: App
             Tenancy:
                 type: attribute
                 is_bundle: false

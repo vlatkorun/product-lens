@@ -11,6 +11,13 @@ final class EncryptedStringType extends Type
 {
     public const NAME = 'encrypted_string';
 
+    private static ?string $key = null;
+
+    public static function configure(string $key): void
+    {
+        self::$key = $key;
+    }
+
     public function getName(): string
     {
         return self::NAME;
@@ -27,7 +34,7 @@ final class EncryptedStringType extends Type
             return null;
         }
 
-        $key = $this->getKey();
+        $key = $this->resolveKey();
         $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
         $ciphertext = sodium_crypto_secretbox((string) $value, $nonce, $key);
 
@@ -43,7 +50,7 @@ final class EncryptedStringType extends Type
             return null;
         }
 
-        $key = $this->getKey();
+        $key = $this->resolveKey();
         $decoded = sodium_base642bin((string) $value, SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
         $nonce = mb_substr($decoded, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES, '8bit');
         $ciphertext = mb_substr($decoded, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES, null, '8bit');
@@ -56,22 +63,15 @@ final class EncryptedStringType extends Type
         return $plaintext;
     }
 
-    public function requiresSQLCommentHint(AbstractPlatform $platform): bool
+    private function resolveKey(): string
     {
-        return true;
-    }
-
-    private function getKey(): string
-    {
-        $hex = $_ENV['APP_ENCRYPTION_KEY'] ?? getenv('APP_ENCRYPTION_KEY') ?: null;
-
-        if ($hex === null || strlen($hex) !== 64) {
+        if (self::$key === null) {
             throw new \RuntimeException(
-                'APP_ENCRYPTION_KEY must be a 64-character hex string (32 bytes). '
-                . 'Generate one with: php -r "echo sodium_bin2hex(random_bytes(32));"',
+                'EncryptedStringType has not been configured. '
+                . 'Register EncryptionKeyConfigurator as a Symfony event subscriber.',
             );
         }
 
-        return hex2bin($hex);
+        return self::$key;
     }
 }
