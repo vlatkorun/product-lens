@@ -1,0 +1,22 @@
+parameters:
+    level: 8
+
+    paths:
+        - src
+
+    symfony:
+        containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
+        consoleApplicationLoader: bin/console
+
+    doctrine:
+        objectManagerLoader: tests/doctrine-object-manager.php
+
+    # Paths to exclude from analysis
+    excludePaths:
+        - src/Kernel.php
+
+    # Treat PHPDoc types as authoritative when mixed inference is ambiguous
+    treatPhpDocTypesAsCertain: false
+
+    # Fail on ignoreErrors entries that no longer match anything (prevents stale suppressions)
+    reportUnmatchedIgnoredErrors: true
