@@ -1,12 +1,10 @@
 doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
-
-        # IMPORTANT: You MUST configure your server version,
-        # either here or in the DATABASE_URL env var (see .env file)
-        #server_version: '16'
-
+        server_version: '16'
         profiling_collect_backtrace: '%kernel.debug%'
+        types:
+            encrypted_string: App\Shared\Infrastructure\Doctrine\Type\EncryptedStringType
     orm:
         validate_xml_mapping: true
         naming_strategy: doctrine.orm.naming_strategy.underscore
@@ -20,6 +18,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Entity'
                 prefix: 'App\Entity'
                 alias: App
+            Tenancy:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Tenancy/Domain/Model'
+                prefix: 'App\Tenancy\Domain\Model'
+                alias: Tenancy
 
 when@test:
     doctrine:

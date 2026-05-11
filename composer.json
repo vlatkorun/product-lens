@@ -37,6 +37,7 @@
         "symfony/string": "7.4.*",
         "symfony/translation": "7.4.*",
         "symfony/twig-bundle": "7.4.*",
+        "symfony/uid": "7.4.*",
         "symfony/ux-turbo": "^3.0",
         "symfony/validator": "7.4.*",
         "symfony/web-link": "7.4.*",
