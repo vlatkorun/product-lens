@@ -5,3 +5,13 @@ services:
             $apiVersion: '%env(SHOPIFY_API_VERSION)%'
         tags:
             - { name: symfony.client }
+
+    App\Tenancy\Infrastructure\Shopify\ShopifyOAuthClient:
+        arguments:
+            $httpClient: '@http_client'
+            $apiKey: '%env(SHOPIFY_API_KEY)%'
+            $apiSecret: '%env(SHOPIFY_API_SECRET)%'
+        tags:
+            - { name: symfony.client }
+
+    App\Tenancy\Domain\Service\OAuth\ShopifyOAuthClientInterface: '@App\Tenancy\Infrastructure\Shopify\ShopifyOAuthClient'

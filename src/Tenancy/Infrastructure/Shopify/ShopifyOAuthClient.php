@@ -6,16 +6,13 @@ namespace App\Tenancy\Infrastructure\Shopify;
 
 use App\Tenancy\Domain\Service\OAuth\ShopifyOAuthClientInterface;
 use App\Tenancy\Domain\ValueObject\ShopifyTokenResult;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final readonly class ShopifyOAuthClient implements ShopifyOAuthClientInterface
 {
     public function __construct(
         private HttpClientInterface $httpClient,
-        #[Autowire('%env(SHOPIFY_API_KEY)%')]
         private string $apiKey,
-        #[Autowire('%env(SHOPIFY_API_SECRET)%')]
         private string $apiSecret,
     ) {
     }
