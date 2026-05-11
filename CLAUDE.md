@@ -1,5 +1,71 @@
 # ProductLens — CLAUDE.md
 
+## Code Quality
+
+Run static analysis via Make:
+```bash
+make analyse # alias for php vendor/bin/phpstan analyse --level=8
+```
+
+Run code style and formatting via Make:
+```bash
+make fix # alias for php vendor/bin/php-cs-fixer fix
+```
+
+## Tooling Configuration
+
+**PHPStan:** level 8 minimum. No baseline file — all errors must be fixed, not
+suppressed. Symfony and Doctrine extensions are active; PHPStan understands
+container types, repository return types, and Doctrine nullable mappings.
+
+**PHP CS Fixer:** `@Symfony` + `@Symfony:risky` + `@PHP84Migration` base rulesets,
+with:
+- `declare(strict_types=1)` enforced on all files
+- `ordered_imports` alphabetically (`class` → `function` → `const`)
+- No unused imports; no global namespace imports — always use fully qualified types
+- `ordered_class_elements`: traits → constants → properties → constructor →
+  public static → public → protected → private → magic
+- PHPDoc: no superfluous tags, left-aligned, trimmed, ordered
+- Trailing commas on multiline arrays, arguments, parameters, and `match`
+- Native function/constant invocations use `\` prefix in namespaced files (perf)
+- No Yoda conditions; post-increment style; `str_contains` over `strpos`
+- Covers `src/`, `tests/`, and `migrations/`
+
+**PHPUnit:** version 13. Configuration flags `failOnDeprecation`, `failOnNotice`,
+and `failOnWarning` — deprecation notices from Symfony or Doctrine fail the suite.
+Use constructor property promotion in test classes. Avoid `setUp()` where a data
+provider or inline construction suffices.
+
+## Testing
+
+- **Test file location:** split by type under `tests/Unit/` and `tests/Integration/`,
+  mirroring the `src/` structure beneath. For example:
+  `src/Tenancy/Domain/Model/Tenant.php` → `tests/Unit/Tenancy/Domain/Model/TenantTest.php`
+- **Namespaces:** `App\Tests\Unit\...` for unit tests,
+  `App\Tests\Integration\...` for integration tests
+- **Unit tests** cover domain aggregates, value objects, and domain services — no
+  framework boot, no database, no HTTP. Construct objects directly; do not use the
+  Symfony container.
+- **Integration tests** cover repository implementations, Shopify HTTP clients,
+  Messenger handlers, and the full OAuth flow. These boot the Symfony kernel and
+  require a real database connection.
+- **Each bounded context has its own tests.** Do not write cross-context assertions
+  inside a context's own test file — cross-context event flow (e.g. `SyncJobCompleted`
+  triggering `RunAuditCommand`) belongs in `tests/Integration/`.
+- **Use data providers** for value object validation (e.g. shop domain format rules,
+  `FeatureFlag` enum mapping, `UserRole` hierarchy) — there are many input
+  combinations to cover exhaustively.
+- **Aggregate invariants** must each have a dedicated test: double-enable of a
+  `FeatureFlag`, reinstall of an `Uninstalled` tenant, role/scope mismatch on
+  `User::create()` vs `User::createForTenant()`, idempotent `grantTenantAccess()`.
+
+Run tests via Make:
+```bash
+make test              # full test suite
+make test-unit         # unit tests only
+make test-integration  # integration tests only
+```
+
 ## What this project does
 
 ProductLens is a multitenant Shopify product audit platform. It periodically fetches
