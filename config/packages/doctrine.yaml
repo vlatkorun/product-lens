@@ -7,9 +7,13 @@ doctrine:
             encrypted_string: App\Shared\Infrastructure\Doctrine\Type\EncryptedStringType
             jsonb: App\Shared\Infrastructure\Doctrine\Type\JsonbType
             tenant_status: App\Tenancy\Infrastructure\Doctrine\Type\TenantStatusType
+            user_role: App\Identity\Infrastructure\Doctrine\Type\UserRoleType
+            user_status: App\Identity\Infrastructure\Doctrine\Type\UserStatusType
         mapping_types:
             jsonb: jsonb
             tenant_status: tenant_status
+            user_role: user_role
+            user_status: user_status
     orm:
         validate_xml_mapping: true
         naming_strategy: doctrine.orm.naming_strategy.underscore
@@ -23,6 +27,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Tenancy/Domain/Model'
                 prefix: 'App\Tenancy\Domain\Model'
                 alias: Tenancy
+            Identity:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Identity/Domain/Model'
+                prefix: 'App\Identity\Domain\Model'
+                alias: Identity
 
 when@test:
     doctrine:

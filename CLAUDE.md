@@ -29,7 +29,7 @@ across their full Shopify catalogue without manual inspection.
 
 ## Architecture: Domain-Driven Design
 
-The project is structured around three **bounded contexts**. Each owns its domain
+The project is structured around four **bounded contexts**. Each owns its domain
 model, application logic, and infrastructure adapters. Contexts communicate only
 via domain events — never by importing each other's domain classes directly.
 The only shared primitives live in `Shared/Domain/`.
@@ -37,13 +37,18 @@ The only shared primitives live in `Shared/Domain/`.
 ### Bounded contexts
 
 ```
+Identity       — user lifecycle, roles, tenant membership, authentication
 Tenancy        — tenant lifecycle, feature flags, Shopify OAuth
 CatalogSync    — product fetching, cursor tracking, webhook ingestion
 ImageAudit     — technical audit chain, AI audit, report generation
 ```
 
-**Tenancy** is a read-dependency for the other two. It exposes `TenantId` (shared)
-and `FeatureFlagResolver` (domain service). No other context writes to Tenancy.
+**Identity** owns all authentication and authorisation concerns. It references
+tenants by UUID only — no import of `Tenancy` domain classes.
+
+**Tenancy** is a read-dependency for `CatalogSync` and `ImageAudit`. It exposes
+`TenantId` (shared) and `FeatureFlagResolver` (domain service). No other context
+writes to Tenancy.
 
 **CatalogSync → ImageAudit** is the main flow. When a sync job completes (or a
 product webhook arrives), `SyncJobCompleted` is dispatched. ImageAudit listens and
@@ -68,6 +73,23 @@ src/
 │       │   └── JsonbType.php                    ← JSONB column type
 │       └── Event/
 │           └── DomainEventPublisher.php         ← routes sync/async events after repository save()
+│
+├── Identity/
+│   ├── Domain/
+│   │   ├── Model/User.php                       ← aggregate root; implements UserInterface
+│   │   ├── Model/UserTenantAccess.php           ← Doctrine join entity for users_tenants (no domain logic)
+│   │   ├── ValueObject/UserRole.php             ← backed enum: SuperAdmin, Admin, TenantAdmin, Tenant
+│   │   ├── ValueObject/UserStatus.php           ← backed enum: Active, Inactive
+│   │   ├── Repository/UserRepositoryInterface.php
+│   │   ├── Event/UserCreated.php
+│   │   ├── Exception/UserAlreadyExistsException.php
+│   │   └── Exception/UserNotFoundException.php
+│   └── Infrastructure/
+│       ├── Doctrine/Type/
+│       │   ├── UserRoleType.php                 ← maps PostgreSQL user_role enum
+│       │   └── UserStatusType.php               ← maps PostgreSQL user_status enum
+│       ├── Persistence/DoctrineUserRepository.php
+│       └── Security/UserProvider.php            ← implements UserProviderInterface + PasswordUpgraderInterface
 │
 ├── Tenancy/
 │   ├── Domain/
@@ -194,6 +216,8 @@ entry so the schema introspector can round-trip correctly. Current custom types:
 | `encrypted_string` | `Shared/Infrastructure/Doctrine/Type/EncryptedStringType` | `TEXT` |
 | `jsonb`            | `Shared/Infrastructure/Doctrine/Type/JsonbType`           | `JSONB` |
 | `tenant_status`    | `Tenancy/Infrastructure/Doctrine/Type/TenantStatusType`   | `tenant_status` (PG enum) |
+| `user_role`        | `Identity/Infrastructure/Doctrine/Type/UserRoleType`      | `user_role` (PG enum) |
+| `user_status`      | `Identity/Infrastructure/Doctrine/Type/UserStatusType`    | `user_status` (PG enum) |
 
 ### Encrypted columns
 
@@ -279,6 +303,62 @@ the stored nonce.
 **Required env vars**: `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_OAUTH_SCOPES`,
 `SHOPIFY_OAUTH_REDIRECT_URI`, `SHOPIFY_WEBHOOK_SECRET`.
 
+**Access control**: `/shopify/install` and `/shopify/callback` are guarded with
+`ROLE_TENANT_ADMIN` in `security.yaml`. Only a Tenant Admin user may initiate or
+complete the Shopify OAuth flow for their tenant.
+
+### Identity: users and roles
+
+`User` is the aggregate root of the `Identity` context. It implements Symfony's
+`UserInterface` and `PasswordAuthenticatedUserInterface` — the framework's security
+layer integrates directly with the domain model (same pragmatic approach as Doctrine
+attributes on aggregates).
+
+**Role hierarchy** (configured in `security.yaml`):
+
+```
+ROLE_SUPER_ADMIN  ⊃  ROLE_ADMIN  ⊃  ROLE_TENANT_ADMIN  ⊃  ROLE_TENANT
+```
+
+Each role maps to a `UserRole` backed enum value:
+
+| Enum case    | DB value      | Symfony role        | Scope                          |
+|--------------|---------------|---------------------|--------------------------------|
+| `SuperAdmin` | `super_admin` | `ROLE_SUPER_ADMIN`  | Full access to everything      |
+| `Admin`      | `admin`       | `ROLE_ADMIN`        | Restricted global access       |
+| `TenantAdmin`| `tenant_admin`| `ROLE_TENANT_ADMIN` | Full access within their tenant|
+| `Tenant`     | `tenant`      | `ROLE_TENANT`       | Restricted access within tenant|
+
+**Factory methods** enforce the global / tenant-scoped split at construction time:
+
+- `User::create(email, password, role, now)` — for `SuperAdmin` / `Admin`. Throws
+  if a tenant-scoped role is passed.
+- `User::createForTenant(email, password, role, tenantId, now)` — for `TenantAdmin`
+  / `Tenant`. Throws if a global role is passed. Calls `grantTenantAccess()` internally.
+
+**Tenant membership** (`users_tenants` table) is a pure join table with two columns:
+`user_id` and `tenant_id` (composite PK). It carries no role and no timestamps —
+the role lives on the `User` aggregate, not on the membership row. `UserTenantAccess`
+is a thin Doctrine entity that maps this table; it has no domain logic and should
+not be used outside of `User`'s own methods.
+
+Domain methods for managing membership:
+
+```php
+$user->grantTenantAccess(UuidV7 $tenantId): void   // idempotent
+$user->revokeTenantAccess(UuidV7 $tenantId): void
+$user->hasTenantAccess(UuidV7 $tenantId): bool
+$user->tenantIds(): UuidV7[]
+```
+
+Cross-context reference: `tenant_id` in `users_tenants` is a plain UUID with a
+DB-level FK to `tenants.id ON DELETE CASCADE`. No Doctrine ORM association to
+`Tenant` — Identity never imports Tenancy domain classes.
+
+**`UserProvider`** (`Infrastructure/Security/UserProvider.php`) implements
+`UserProviderInterface` and `PasswordUpgraderInterface`. It loads users by email
+and is registered as `app_user_provider` in `security.yaml`.
+
 ### Multitenancy
 
 `TenantContextMiddleware` (Symfony Messenger middleware) resolves `TenantId` from
@@ -337,6 +417,12 @@ every repository and handler.
   a collection while one is running should resume the existing job via its cursor.
 - The AI audit step only runs if `FeatureFlag::AI_IMAGE_AUDIT` is enabled for the
   tenant. This is enforced at the application layer, not the domain layer.
+- `User::create()` rejects tenant-scoped roles (`TenantAdmin`, `Tenant`); use
+  `User::createForTenant()` instead. The reverse guard applies symmetrically.
+- `User::grantTenantAccess()` is idempotent — calling it with an already-held
+  `tenantId` is a no-op.
+- A user has a single `UserRole` that applies across all their tenant memberships.
+  Per-tenant role differentiation is not supported.
 
 ---
 
@@ -368,13 +454,25 @@ every repository and handler.
 
 ## What is not yet built
 
-- Tenancy application layer: `CreateTenant` command/handler, `GetTenant` query/handler
-- Tenancy infrastructure: `TenantContextMiddleware`, `FeatureFlagResolver`
+**Identity**
+- Application layer: `CreateUser`, `AssignToTenant`, `DeactivateUser` commands;
+  `GetUser` query
+- `TenantVoter` — Symfony Voter checking `$user->hasTenantAccess($tenantId)` for
+  object-level tenant access control
+- Authentication mechanism not yet chosen (form_login + session vs JSON login + JWT)
+
+**Tenancy**
+- Application layer: `CreateTenant` command/handler, `GetTenant` query/handler
+- Infrastructure: `TenantContextMiddleware`, `FeatureFlagResolver`
 - Post-OAuth shop metadata fetch (populate `name`, `email`, `currencyCode`, etc. via
   Shopify Admin API after `CompleteOAuth` succeeds)
 - Tenant runtime isolation: Doctrine SQL filter + PostgreSQL Row Level Security
-- CatalogSync bounded context (all of it)
-- ImageAudit bounded context (all of it)
+
+**CatalogSync** — all of it
+
+**ImageAudit** — all of it
+
+**General**
 - Shopify App UI (React / App Bridge) for toggling feature flags per tenant
 - Report export (CSV / PDF)
 - Notification layer (email / Slack when audit finds issues)
