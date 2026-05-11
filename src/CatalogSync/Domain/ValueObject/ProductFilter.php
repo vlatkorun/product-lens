@@ -9,5 +9,6 @@ final readonly class ProductFilter
     public function __construct(
         public ShopifyGid $collectionGid,
         public ProductStatus $status = ProductStatus::Active,
-    ) {}
+    ) {
+    }
 }

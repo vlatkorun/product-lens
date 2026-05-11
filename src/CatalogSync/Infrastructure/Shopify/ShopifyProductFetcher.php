@@ -11,33 +11,37 @@ use App\CatalogSync\Domain\ValueObject\ProductPage;
 use App\CatalogSync\Domain\ValueObject\ProductStatus;
 use App\CatalogSync\Domain\ValueObject\ShopifyGid;
 use App\CatalogSync\Domain\ValueObject\SyncCursor;
+use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\GetProductResponseDto;
+use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\ImageDto;
+use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\ProductNodeDto;
+use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\ProductsByCollectionResponseDto;
 use App\CatalogSync\Infrastructure\Shopify\GraphQL\GetProductQuery;
 use App\CatalogSync\Infrastructure\Shopify\GraphQL\ProductsByCollectionQuery;
 use App\Tenancy\Domain\Repository\TenantRepositoryInterface;
 use Symfony\Component\Uid\UuidV7;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final readonly class ShopifyProductFetcher implements ProductFetcherInterface
 {
     public function __construct(
-        private HttpClientInterface $httpClient,
+        private ShopifyClient $shopifyClient,
         private TenantRepositoryInterface $tenantRepository,
-    ) {}
+    ) {
+    }
 
     public function fetchByGid(ShopifyGid $gid, UuidV7 $tenantId): Product
     {
         ['shopDomain' => $shopDomain, 'accessToken' => $accessToken] = $this->resolveCredentials($tenantId);
 
-        $response = $this->query(
+        $data = $this->shopifyClient->query(
             $shopDomain,
             $accessToken,
             GetProductQuery::QUERY,
             GetProductQuery::variables($gid->value),
         );
 
-        $node = $response['data']['product'];
+        $dto = GetProductResponseDto::fromResponse($data);
 
-        return $this->mapProduct($node, $gid, $tenantId, new \DateTimeImmutable());
+        return $this->mapProduct($dto->product, $gid, $tenantId, new \DateTimeImmutable());
     }
 
     public function fetchPage(
@@ -48,7 +52,7 @@ final readonly class ShopifyProductFetcher implements ProductFetcherInterface
     ): ProductPage {
         ['shopDomain' => $shopDomain, 'accessToken' => $accessToken] = $this->resolveCredentials($tenantId);
 
-        $response = $this->query(
+        $data = $this->shopifyClient->query(
             $shopDomain,
             $accessToken,
             ProductsByCollectionQuery::QUERY,
@@ -59,24 +63,19 @@ final readonly class ShopifyProductFetcher implements ProductFetcherInterface
             ),
         );
 
-        $connection = $response['data']['collection']['products'];
+        $dto = ProductsByCollectionResponseDto::fromResponse($data);
         $syncedAt = new \DateTimeImmutable();
 
-        $products = \array_map(
-            fn(array $edge): Product => $this->mapProduct(
-                $edge['node'],
-                $filter->collectionGid,
-                $tenantId,
-                $syncedAt,
-            ),
-            $connection['edges'],
-        );
+        $products = \array_values(\array_map(
+            fn (ProductNodeDto $node): Product => $this->mapProduct($node, $filter->collectionGid, $tenantId, $syncedAt),
+            $dto->products,
+        ));
 
         return new ProductPage(
             $products,
             new SyncCursor(
-                $connection['pageInfo']['endCursor'],
-                $connection['pageInfo']['hasNextPage'],
+                $dto->pageInfo->endCursor,
+                $dto->pageInfo->hasNextPage,
             ),
         );
     }
@@ -93,48 +92,19 @@ final readonly class ShopifyProductFetcher implements ProductFetcherInterface
         return ['shopDomain' => $tenant->shopDomain(), 'accessToken' => $tenant->shopifyAccessToken()];
     }
 
-    private function query(string $shopDomain, string $accessToken, string $query, array $variables): array
+    private function mapProduct(ProductNodeDto $node, ShopifyGid $collectionGid, UuidV7 $tenantId, \DateTimeImmutable $syncedAt): Product
     {
-        $response = $this->httpClient->request('POST', \sprintf('https://%s/admin/api/2024-10/graphql.json', $shopDomain), [
-            'headers' => [
-                'X-Shopify-Access-Token' => $accessToken,
-                'Content-Type'           => 'application/json',
-            ],
-            'json' => ['query' => $query, 'variables' => $variables],
-        ]);
-
-        $data = $response->toArray();
-
-        if (!empty($data['errors'])) {
-            throw new \RuntimeException(\sprintf('Shopify GraphQL error: %s', \json_encode($data['errors'])));
-        }
-
-        return $data;
-    }
-
-    private function mapProduct(array $node, ShopifyGid $collectionGid, UuidV7 $tenantId, \DateTimeImmutable $syncedAt): Product
-    {
-        $images = \array_map(
-            static fn(array $edge): array => [
-                'url'     => $edge['node']['url'],
-                'altText' => $edge['node']['altText'],
-                'width'   => $edge['node']['width'],
-                'height'  => $edge['node']['height'],
-            ],
-            $node['images']['edges'],
-        );
-
         return Product::create(
             $tenantId,
-            ShopifyGid::fromString($node['id']),
+            ShopifyGid::fromString($node->id),
             $collectionGid,
-            $node['title'],
-            $node['handle'],
-            $node['vendor'] ?? '',
-            $node['productType'] ?? '',
-            ProductStatus::from(\strtolower($node['status'])),
-            $images,
-            $node['featuredImage']['url'] ?? null,
+            $node->title,
+            $node->handle,
+            $node->vendor,
+            $node->productType,
+            ProductStatus::from(\strtolower($node->status)),
+            \array_map(static fn (ImageDto $image): array => $image->toArray(), $node->images),
+            $node->featuredImageUrl,
             $syncedAt,
         );
     }

@@ -6,6 +6,6 @@ namespace App\Shared\Domain\ValueObject;
 
 enum FeatureFlag: string
 {
-    case ImageAudit   = 'image_audit';
+    case ImageAudit = 'image_audit';
     case AiImageAudit = 'ai_image_audit';
 }

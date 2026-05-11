@@ -13,7 +13,8 @@ final readonly class DomainEventPublisher
     public function __construct(
         private MessageBusInterface $eventBus,
         private EventDispatcherInterface $eventDispatcher,
-    ) {}
+    ) {
+    }
 
     public function publish(object $event): void
     {

@@ -165,9 +165,27 @@ Two enforcement layers:
 
 ## Infrastructure
 
+### `ShopifyClient`
+
+Low-level GraphQL transport. Holds `HttpClientInterface` and the `SHOPIFY_API_VERSION` env var. Exposes a single `query(shopDomain, accessToken, query, variables): array` method. The API version is injected via `#[Autowire('%env(SHOPIFY_API_VERSION)%')]` — do not hard-code the version inside the fetcher.
+
 ### `ShopifyProductFetcher`
 
-Implements `ProductFetcherInterface`. Resolves Shopify credentials from `TenantRepositoryInterface` internally — credentials never appear in domain contracts. Uses Symfony `HttpClientInterface` to call Shopify GraphQL Admin API (2024-10).
+Implements `ProductFetcherInterface`. Resolves Shopify credentials from `TenantRepositoryInterface` internally — credentials never appear in domain contracts. Delegates HTTP to `ShopifyClient`; parses responses through typed DTOs in `GraphQL/Dto/` before mapping to domain objects. No raw `array` shapes leak past this class.
+
+### GraphQL DTOs (`Infrastructure/Shopify/GraphQL/Dto/`)
+
+Typed value objects for Shopify GraphQL responses — not domain objects. Used only inside `ShopifyProductFetcher` to parse raw API arrays before mapping.
+
+| Class | Purpose |
+|---|---|
+| `ImageDto` | Single image node: `url`, `altText`, `width`, `height`. `toArray()` returns the `list<array{...}>` shape that `Product::create()` accepts. |
+| `ProductNodeDto` | Full product node: id, title, handle, vendor, productType, status, featuredImageUrl, `list<ImageDto>`. |
+| `PageInfoDto` | `hasNextPage: bool`, `endCursor: ?string`. |
+| `ProductsByCollectionResponseDto` | Parses `data.collection.products` — `list<ProductNodeDto>` + `PageInfoDto`. |
+| `GetProductResponseDto` | Parses `data.product` — single `ProductNodeDto`. |
+
+Each DTO has a `static fromResponse(array $data)` or `fromNode(array $node)` factory. Never pass raw Shopify response arrays to `mapProduct()`.
 
 ### `ShopifyWebhookValidator`
 

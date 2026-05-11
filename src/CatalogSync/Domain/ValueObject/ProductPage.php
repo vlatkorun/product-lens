@@ -12,5 +12,6 @@ final readonly class ProductPage
     public function __construct(
         public array $products,
         public SyncCursor $cursor,
-    ) {}
+    ) {
+    }
 }

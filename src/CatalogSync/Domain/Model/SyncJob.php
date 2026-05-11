@@ -65,7 +65,9 @@ class SyncJob extends AggregateRoot implements TenantScopedInterface
     #[ORM\Column(name: 'failure_reason', type: 'text', nullable: true)]
     private ?string $failureReason = null;
 
-    private function __construct() {}
+    private function __construct()
+    {
+    }
 
     public static function schedule(
         UuidV7 $tenantId,

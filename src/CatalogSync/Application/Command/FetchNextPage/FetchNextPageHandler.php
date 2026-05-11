@@ -23,7 +23,8 @@ final readonly class FetchNextPageHandler
         private ProductFetcherInterface $productFetcher,
         private ProductRepositoryInterface $productRepository,
         private MessageBusInterface $commandBus,
-    ) {}
+    ) {
+    }
 
     public function __invoke(FetchNextPageCommand $command): void
     {

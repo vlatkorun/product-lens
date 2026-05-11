@@ -17,7 +17,8 @@ final readonly class ProcessSyncScheduleHandler
     public function __construct(
         private Connection $connection,
         private MessageBusInterface $commandBus,
-    ) {}
+    ) {
+    }
 
     public function __invoke(ProcessSyncScheduleCommand $command): void
     {
@@ -26,24 +27,24 @@ final readonly class ProcessSyncScheduleHandler
         try {
             $rows = $this->connection->executeQuery(
                 <<<'SQL'
-                SELECT mc.id, mc.tenant_id, mc.collection_gid
-                FROM collection_sync_configs mc
-                WHERE mc.enabled = true
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM sync_jobs sj
-                      WHERE sj.monitored_collection_id = mc.id
-                        AND sj.status IN ('pending', 'running')
-                  )
-                FOR UPDATE SKIP LOCKED
-                SQL,
+                    SELECT mc.id, mc.tenant_id, mc.collection_gid
+                    FROM collection_sync_configs mc
+                    WHERE mc.enabled = true
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM sync_jobs sj
+                          WHERE sj.monitored_collection_id = mc.id
+                            AND sj.status IN ('pending', 'running')
+                      )
+                    FOR UPDATE SKIP LOCKED
+                    SQL,
             )->fetchAllAssociative();
 
             $now = new \DateTimeImmutable();
             $toDispatch = [];
 
             foreach ($rows as $row) {
-                $syncJobId = (new UuidV7())->toRfc4122();
+                $syncJobId = new UuidV7()->toRfc4122();
 
                 $this->connection->executeStatement(
                     'INSERT INTO sync_jobs

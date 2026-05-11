@@ -16,14 +16,15 @@ final readonly class ConfigureMonitoredCollectionHandler
 {
     public function __construct(
         private MonitoredCollectionRepositoryInterface $repository,
-    ) {}
+    ) {
+    }
 
     public function __invoke(ConfigureMonitoredCollectionCommand $command): void
     {
         $tenantId = UuidV7::fromString($command->tenantId);
         $collectionGid = ShopifyGid::fromString($command->collectionGid);
         $featureFlags = \array_map(
-            static fn(string $v): FeatureFlag => FeatureFlag::from($v),
+            static fn (string $v): FeatureFlag => FeatureFlag::from($v),
             $command->featureFlags,
         );
 

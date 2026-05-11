@@ -12,5 +12,6 @@ final readonly class TenantCreated implements DomainEvent
         public string $tenantId,
         public string $shopDomain,
         public \DateTimeImmutable $occurredAt,
-    ) {}
+    ) {
+    }
 }

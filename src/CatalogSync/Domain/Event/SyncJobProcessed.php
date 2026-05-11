@@ -13,5 +13,6 @@ final readonly class SyncJobProcessed implements AsyncDomainEvent
         public int $pageCount,
         public int $totalProcessed,
         public \DateTimeImmutable $occurredAt,
-    ) {}
+    ) {
+    }
 }

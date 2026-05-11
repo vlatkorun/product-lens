@@ -9,5 +9,6 @@ final readonly class SyncCursor
     public function __construct(
         public ?string $endCursor,
         public bool $hasNextPage,
-    ) {}
+    ) {
+    }
 }

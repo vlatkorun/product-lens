@@ -18,7 +18,7 @@ final class SyncSchedule implements ScheduleProviderInterface
 
     public function getSchedule(): Schedule
     {
-        return $this->schedule ??= (new Schedule())
+        return $this->schedule ??= new Schedule()
             ->with(
                 RecurringMessage::every('5 minutes', new ProcessSyncScheduleCommand()),
                 RecurringMessage::every('2 minutes', new RescheduleStuckJobsCommand()),

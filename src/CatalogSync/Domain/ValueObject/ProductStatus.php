@@ -6,7 +6,7 @@ namespace App\CatalogSync\Domain\ValueObject;
 
 enum ProductStatus: string
 {
-    case Active   = 'active';
+    case Active = 'active';
     case Archived = 'archived';
-    case Draft    = 'draft';
+    case Draft = 'draft';
 }

@@ -16,7 +16,8 @@ final readonly class HandleWebhookHandler
     public function __construct(
         private ProductFetcherInterface $productFetcher,
         private ProductRepositoryInterface $productRepository,
-    ) {}
+    ) {
+    }
 
     public function __invoke(HandleWebhookCommand $command): void
     {

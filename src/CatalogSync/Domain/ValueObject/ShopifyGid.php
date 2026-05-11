@@ -6,7 +6,9 @@ namespace App\CatalogSync\Domain\ValueObject;
 
 final readonly class ShopifyGid
 {
-    private function __construct(public string $value) {}
+    private function __construct(public string $value)
+    {
+    }
 
     public static function fromString(string $gid): self
     {

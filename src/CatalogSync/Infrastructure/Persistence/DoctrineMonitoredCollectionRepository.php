@@ -40,7 +40,7 @@ class DoctrineMonitoredCollectionRepository extends ServiceEntityRepository impl
     public function findByTenantAndCollectionGid(UuidV7 $tenantId, ShopifyGid $collectionGid): ?MonitoredCollection
     {
         return $this->findOneBy([
-            'tenantId' => $tenantId,
+            'tenantId'         => $tenantId,
             'collectionGidRaw' => $collectionGid->value,
         ]);
     }

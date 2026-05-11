@@ -51,7 +51,9 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
     #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
     private \DateTimeImmutable $updatedAt;
 
-    private function __construct() {}
+    private function __construct()
+    {
+    }
 
     /** @param list<FeatureFlag> $featureFlags */
     public static function create(
@@ -129,7 +131,7 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
     public function onPostLoad(): void
     {
         $this->featureFlags = \array_map(
-            static fn(string $v): FeatureFlag => FeatureFlag::from($v),
+            static fn (string $v): FeatureFlag => FeatureFlag::from($v),
             $this->featureFlagsRaw,
         );
     }
@@ -145,14 +147,6 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
     {
         $this->updatedAt = new \DateTimeImmutable();
         $this->serializeFeatureFlags();
-    }
-
-    private function serializeFeatureFlags(): void
-    {
-        $this->featureFlagsRaw = \array_map(
-            static fn(FeatureFlag $f): string => $f->value,
-            $this->featureFlags,
-        );
     }
 
     public function id(): UuidV7
@@ -194,5 +188,13 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
     public function updatedAt(): \DateTimeImmutable
     {
         return $this->updatedAt;
+    }
+
+    private function serializeFeatureFlags(): void
+    {
+        $this->featureFlagsRaw = \array_map(
+            static fn (FeatureFlag $f): string => $f->value,
+            $this->featureFlags,
+        );
     }
 }

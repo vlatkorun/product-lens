@@ -6,5 +6,7 @@ namespace App\CatalogSync\Application\Command\FetchNextPage;
 
 final readonly class FetchNextPageCommand
 {
-    public function __construct(public string $syncJobId) {}
+    public function __construct(public string $syncJobId)
+    {
+    }
 }

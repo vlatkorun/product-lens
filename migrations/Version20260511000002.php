@@ -26,31 +26,31 @@ final class Version20260511000002 extends AbstractMigration
         $this->addSql("CREATE TYPE user_status AS ENUM ('active', 'inactive')");
 
         $this->addSql(<<<'SQL'
-            CREATE TABLE users (
-                id         UUID         NOT NULL,
-                email      VARCHAR(255) NOT NULL,
-                password   VARCHAR(255) NOT NULL,
-                role       user_role    NOT NULL,
-                status     user_status  NOT NULL DEFAULT 'active',
-                created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
-                updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
-                PRIMARY KEY (id)
-            )
-        SQL);
+                CREATE TABLE users (
+                    id         UUID         NOT NULL,
+                    email      VARCHAR(255) NOT NULL,
+                    password   VARCHAR(255) NOT NULL,
+                    role       user_role    NOT NULL,
+                    status     user_status  NOT NULL DEFAULT 'active',
+                    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                    PRIMARY KEY (id)
+                )
+            SQL);
 
         $this->addSql('CREATE UNIQUE INDEX users_email_uq ON users (email)');
         $this->addSql('CREATE INDEX users_role_idx ON users (role)');
         $this->addSql('CREATE INDEX users_status_idx ON users (status)');
 
         $this->addSql(<<<'SQL'
-            CREATE TABLE users_tenants (
-                user_id   UUID NOT NULL,
-                tenant_id UUID NOT NULL,
-                PRIMARY KEY (user_id, tenant_id),
-                CONSTRAINT fk_users_tenants_user_id   FOREIGN KEY (user_id)   REFERENCES users   (id) ON DELETE CASCADE,
-                CONSTRAINT fk_users_tenants_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants (id) ON DELETE CASCADE
-            )
-        SQL);
+                CREATE TABLE users_tenants (
+                    user_id   UUID NOT NULL,
+                    tenant_id UUID NOT NULL,
+                    PRIMARY KEY (user_id, tenant_id),
+                    CONSTRAINT fk_users_tenants_user_id   FOREIGN KEY (user_id)   REFERENCES users   (id) ON DELETE CASCADE,
+                    CONSTRAINT fk_users_tenants_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants (id) ON DELETE CASCADE
+                )
+            SQL);
 
         $this->addSql('CREATE INDEX users_tenants_tenant_id_idx ON users_tenants (tenant_id)');
     }

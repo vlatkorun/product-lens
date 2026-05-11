@@ -17,7 +17,8 @@ final readonly class ShopifyWebhookController
     public function __construct(
         private ShopifyWebhookValidator $validator,
         private MessageBusInterface $commandBus,
-    ) {}
+    ) {
+    }
 
     #[Route('/webhooks/shopify/{tenantId}/products', name: 'shopify_webhook_products', methods: ['POST'])]
     public function products(Request $request, string $tenantId): JsonResponse

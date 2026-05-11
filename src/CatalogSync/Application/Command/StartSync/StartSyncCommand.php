@@ -6,5 +6,7 @@ namespace App\CatalogSync\Application\Command\StartSync;
 
 final readonly class StartSyncCommand
 {
-    public function __construct(public string $syncJobId) {}
+    public function __construct(public string $syncJobId)
+    {
+    }
 }

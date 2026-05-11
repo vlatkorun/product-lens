@@ -8,5 +8,6 @@ final readonly class BeginOAuthCommand
 {
     public function __construct(
         public string $shopDomain,
-    ) {}
+    ) {
+    }
 }

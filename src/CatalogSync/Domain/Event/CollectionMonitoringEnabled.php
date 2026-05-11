@@ -13,5 +13,6 @@ final readonly class CollectionMonitoringEnabled implements DomainEvent
         public string $tenantId,
         public string $collectionGid,
         public \DateTimeImmutable $occurredAt,
-    ) {}
+    ) {
+    }
 }

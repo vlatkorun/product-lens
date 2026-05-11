@@ -12,7 +12,9 @@ use Symfony\Component\Uid\UuidV7;
 #[AsMessageHandler]
 final readonly class GetSyncStatusHandler
 {
-    public function __construct(private SyncJobRepositoryInterface $syncJobRepository) {}
+    public function __construct(private SyncJobRepositoryInterface $syncJobRepository)
+    {
+    }
 
     public function __invoke(GetSyncStatusQuery $query): ?SyncJob
     {

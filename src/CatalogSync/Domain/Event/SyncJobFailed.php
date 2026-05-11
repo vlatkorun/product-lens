@@ -13,5 +13,6 @@ final readonly class SyncJobFailed implements AsyncDomainEvent
         public string $tenantId,
         public string $failureReason,
         public \DateTimeImmutable $occurredAt,
-    ) {}
+    ) {
+    }
 }

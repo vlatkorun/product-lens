@@ -40,7 +40,7 @@ class DoctrineSyncJobRepository extends ServiceEntityRepository implements SyncJ
     /** @return list<SyncJob> */
     public function findStuckPending(\DateTimeImmutable $olderThan): array
     {
-        /** @var list<SyncJob> */
+        /* @var list<SyncJob> */
         return $this->createQueryBuilder('j')
             ->where('j.status = :status')
             ->andWhere('j.startedAt < :olderThan')

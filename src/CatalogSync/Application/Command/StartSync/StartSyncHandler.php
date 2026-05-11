@@ -17,7 +17,8 @@ final readonly class StartSyncHandler
     public function __construct(
         private SyncJobRepositoryInterface $syncJobRepository,
         private MessageBusInterface $commandBus,
-    ) {}
+    ) {
+    }
 
     public function __invoke(StartSyncCommand $command): void
     {

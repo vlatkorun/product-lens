@@ -13,5 +13,6 @@ final readonly class ConfigureMonitoredCollectionCommand
         public string $collectionName,
         public array $featureFlags,
         public bool $enabled = true,
-    ) {}
+    ) {
+    }
 }

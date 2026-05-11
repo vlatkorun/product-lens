@@ -6,5 +6,7 @@ namespace App\CatalogSync\Application\Query\GetSyncStatus;
 
 final readonly class GetSyncStatusQuery
 {
-    public function __construct(public string $syncJobId) {}
+    public function __construct(public string $syncJobId)
+    {
+    }
 }

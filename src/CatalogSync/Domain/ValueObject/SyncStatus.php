@@ -6,8 +6,8 @@ namespace App\CatalogSync\Domain\ValueObject;
 
 enum SyncStatus: string
 {
-    case Pending   = 'pending';
-    case Running   = 'running';
+    case Pending = 'pending';
+    case Running = 'running';
     case Completed = 'completed';
-    case Failed    = 'failed';
+    case Failed = 'failed';
 }

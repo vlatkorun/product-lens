@@ -22,7 +22,7 @@ use Symfony\Component\Uid\UuidV7;
 #[ORM\Index(name: 'users_role_idx', fields: ['role'])]
 #[ORM\Index(name: 'users_status_idx', fields: ['status'])]
 #[ORM\HasLifecycleCallbacks]
-class User extends AggregateRoot implements UserInterface, PasswordAuthenticatedUserInterface
+class User extends AggregateRoot implements PasswordAuthenticatedUserInterface, UserInterface
 {
     #[ORM\Id]
     #[ORM\Column(type: 'uuid')]
@@ -64,7 +64,7 @@ class User extends AggregateRoot implements UserInterface, PasswordAuthenticated
     ): self {
         if ($role->isTenantScoped()) {
             throw new \InvalidArgumentException(
-                sprintf('Role "%s" requires a tenant. Use User::createForTenant() instead.', $role->value),
+                \sprintf('Role "%s" requires a tenant. Use User::createForTenant() instead.', $role->value),
             );
         }
 
@@ -91,7 +91,7 @@ class User extends AggregateRoot implements UserInterface, PasswordAuthenticated
     ): self {
         if ($role->isGlobal()) {
             throw new \InvalidArgumentException(
-                sprintf('Role "%s" is not tenant-scoped. Use User::create() instead.', $role->value),
+                \sprintf('Role "%s" is not tenant-scoped. Use User::create() instead.', $role->value),
             );
         }
 
@@ -132,14 +132,14 @@ class User extends AggregateRoot implements UserInterface, PasswordAuthenticated
     public function revokeTenantAccess(UuidV7 $tenantId): void
     {
         $this->tenantAccesses = $this->tenantAccesses->filter(
-            fn(UserTenantAccess $a) => !$a->tenantId()->equals($tenantId),
+            static fn (UserTenantAccess $a) => !$a->tenantId()->equals($tenantId),
         );
     }
 
     public function hasTenantAccess(UuidV7 $tenantId): bool
     {
         return $this->tenantAccesses->exists(
-            fn(int $_, UserTenantAccess $a) => $a->tenantId()->equals($tenantId),
+            static fn (int $_, UserTenantAccess $a) => $a->tenantId()->equals($tenantId),
         );
     }
 
@@ -177,7 +177,9 @@ class User extends AggregateRoot implements UserInterface, PasswordAuthenticated
         };
     }
 
-    public function eraseCredentials(): void {}
+    public function eraseCredentials(): void
+    {
+    }
 
     // --- PasswordAuthenticatedUserInterface ---
 
@@ -188,16 +190,39 @@ class User extends AggregateRoot implements UserInterface, PasswordAuthenticated
 
     // --- Accessors ---
 
-    public function id(): UuidV7 { return $this->id; }
-    public function email(): string { return $this->email; }
-    public function role(): UserRole { return $this->role; }
-    public function status(): UserStatus { return $this->status; }
-    public function createdAt(): \DateTimeImmutable { return $this->createdAt; }
-    public function updatedAt(): \DateTimeImmutable { return $this->updatedAt; }
+    public function id(): UuidV7
+    {
+        return $this->id;
+    }
+
+    public function email(): string
+    {
+        return $this->email;
+    }
+
+    public function role(): UserRole
+    {
+        return $this->role;
+    }
+
+    public function status(): UserStatus
+    {
+        return $this->status;
+    }
+
+    public function createdAt(): \DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
+    public function updatedAt(): \DateTimeImmutable
+    {
+        return $this->updatedAt;
+    }
 
     /** @return UuidV7[] */
     public function tenantIds(): array
     {
-        return $this->tenantAccesses->map(fn(UserTenantAccess $a) => $a->tenantId())->toArray();
+        return $this->tenantAccesses->map(static fn (UserTenantAccess $a) => $a->tenantId())->toArray();
     }
 }

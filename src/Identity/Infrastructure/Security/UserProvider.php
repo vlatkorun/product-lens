@@ -13,16 +13,18 @@ use Symfony\Component\Security\Core\User\PasswordUpgraderInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 
-final readonly class UserProvider implements UserProviderInterface, PasswordUpgraderInterface
+final readonly class UserProvider implements PasswordUpgraderInterface, UserProviderInterface
 {
-    public function __construct(private UserRepositoryInterface $users) {}
+    public function __construct(private UserRepositoryInterface $users)
+    {
+    }
 
     public function loadUserByIdentifier(string $identifier): UserInterface
     {
         $user = $this->users->findByEmail($identifier);
 
         if ($user === null) {
-            $exception = new UserNotFoundException(sprintf('User "%s" not found.', $identifier));
+            $exception = new UserNotFoundException(\sprintf('User "%s" not found.', $identifier));
             $exception->setUserIdentifier($identifier);
             throw $exception;
         }
@@ -33,7 +35,7 @@ final readonly class UserProvider implements UserProviderInterface, PasswordUpgr
     public function refreshUser(UserInterface $user): UserInterface
     {
         if (!$user instanceof User) {
-            throw new UnsupportedUserException(sprintf('Unsupported user class "%s".', $user::class));
+            throw new UnsupportedUserException(\sprintf('Unsupported user class "%s".', $user::class));
         }
 
         return $this->loadUserByIdentifier($user->getUserIdentifier());
@@ -41,7 +43,7 @@ final readonly class UserProvider implements UserProviderInterface, PasswordUpgr
 
     public function supportsClass(string $class): bool
     {
-        return $class === User::class || is_subclass_of($class, User::class);
+        return $class === User::class || \is_subclass_of($class, User::class);
     }
 
     public function upgradePassword(PasswordAuthenticatedUserInterface $user, string $newHashedPassword): void

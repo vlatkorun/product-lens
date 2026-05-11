@@ -14,5 +14,6 @@ final readonly class UserCreated implements DomainEvent
         public string $role,
         public ?string $tenantId,
         public \DateTimeImmutable $occurredAt,
-    ) {}
+    ) {
+    }
 }

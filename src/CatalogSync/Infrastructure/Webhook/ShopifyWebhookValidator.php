@@ -12,7 +12,8 @@ final readonly class ShopifyWebhookValidator
     public function __construct(
         #[Autowire(env: 'SHOPIFY_WEBHOOK_SECRET')]
         private string $webhookSecret,
-    ) {}
+    ) {
+    }
 
     public function validate(Request $request): bool
     {

@@ -10,5 +10,6 @@ final readonly class HandleWebhookCommand
         public string $tenantId,
         public string $shopifyProductGid,
         public string $eventType,
-    ) {}
+    ) {
+    }
 }

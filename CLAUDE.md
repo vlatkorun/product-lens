@@ -202,8 +202,11 @@ src/
 │   │   ├── Command/HandleWebhook/{Command,Handler}.php
 │   │   └── Query/GetSyncStatus/{Query,Handler}.php
 │   └── Infrastructure/
-│       ├── Shopify/ShopifyProductFetcher.php     ← implements ProductFetcherInterface
+│       ├── Shopify/ShopifyClient.php             ← GraphQL transport; holds HttpClient + SHOPIFY_API_VERSION
+│       ├── Shopify/ShopifyProductFetcher.php     ← implements ProductFetcherInterface; maps DTOs → domain
 │       ├── Shopify/GraphQL/ProductsByCollectionQuery.php
+│       ├── Shopify/GraphQL/GetProductQuery.php
+│       ├── Shopify/GraphQL/Dto/{ImageDto,ProductNodeDto,PageInfoDto,...}.php  ← typed response DTOs
 │       ├── Shopify/Webhook/{ShopifyWebhookController,ShopifyWebhookValidator}.php
 │       ├── Persistence/{DoctrineSyncJobRepository,DoctrineProductRepository}.php
 │       └── Scheduler/SyncSchedule.php            ← Symfony Scheduler
@@ -305,8 +308,9 @@ replaces `SyncCursor` each page and transitions to `COMPLETED` + raises
 point by reading `$syncJob->cursor()`.
 
 `ProductFetcherInterface` is a domain service contract. `ShopifyProductFetcher`
-implements it in Infrastructure via Shopify GraphQL Admin API (Relay Connection
-spec, cursor-based pagination). The domain never touches HTTP.
+implements it in Infrastructure via `ShopifyClient` (which wraps `HttpClientInterface`
+and the versioned Shopify GraphQL Admin API). Responses are parsed through typed DTOs
+before being mapped to domain objects. The domain never touches HTTP or raw arrays.
 
 Periodic sync is driven by `SyncSchedule` (Symfony Scheduler component).
 Webhook-triggered syncs go through `HandleWebhookCommand`, which creates or
@@ -367,7 +371,8 @@ mismatch, expired/unknown state, or shop domain mismatch between the callback an
 the stored nonce.
 
 **Required env vars**: `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_OAUTH_SCOPES`,
-`SHOPIFY_OAUTH_REDIRECT_URI`, `SHOPIFY_WEBHOOK_SECRET`.
+`SHOPIFY_OAUTH_REDIRECT_URI`, `SHOPIFY_WEBHOOK_SECRET`, `SHOPIFY_API_VERSION` (used by
+`ShopifyClient` in CatalogSync; current value `2024-10`).
 
 **Access control**: `/shopify/install` and `/shopify/callback` are guarded with
 `ROLE_TENANT_ADMIN` in `security.yaml`. Only a Tenant Admin user may initiate or

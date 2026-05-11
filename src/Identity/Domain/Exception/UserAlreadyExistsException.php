@@ -8,6 +8,6 @@ final class UserAlreadyExistsException extends \DomainException
 {
     public static function forEmail(string $email): self
     {
-        return new self(sprintf('A user with email "%s" already exists.', $email));
+        return new self(\sprintf('A user with email "%s" already exists.', $email));
     }
 }

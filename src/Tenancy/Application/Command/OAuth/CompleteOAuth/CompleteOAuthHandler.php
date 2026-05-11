@@ -22,8 +22,10 @@ final class CompleteOAuthHandler
         private readonly OAuthStateStoreInterface $stateStore,
         private readonly ShopifyOAuthClientInterface $oauthClient,
         private readonly TenantRepositoryInterface $tenantRepository,
-        #[Autowire('%env(SHOPIFY_WEBHOOK_SECRET)%')] private readonly string $webhookSecret,
-    ) {}
+        #[Autowire('%env(SHOPIFY_WEBHOOK_SECRET)%')]
+        private readonly string $webhookSecret,
+    ) {
+    }
 
     public function __invoke(CompleteOAuthCommand $command): void
     {
@@ -42,7 +44,7 @@ final class CompleteOAuthHandler
         $tenant = $this->tenantRepository->findByShopDomain($command->shopDomain);
 
         if ($tenant === null) {
-            $shopHandle = (string) strstr($command->shopDomain, '.', before_needle: true);
+            $shopHandle = (string) \strstr($command->shopDomain, '.', before_needle: true);
             $tenant = Tenant::create($shopHandle, $shopHandle, $command->shopDomain, $now);
         } elseif ($tenant->status() === TenantStatus::Uninstalled) {
             $tenant->reinstall($now);

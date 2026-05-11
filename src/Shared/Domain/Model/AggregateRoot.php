@@ -9,11 +9,6 @@ abstract class AggregateRoot
     /** @var list<object> */
     private array $domainEvents = [];
 
-    protected function raise(object $event): void
-    {
-        $this->domainEvents[] = $event;
-    }
-
     /** @return list<object> */
     public function pullDomainEvents(): array
     {
@@ -21,5 +16,10 @@ abstract class AggregateRoot
         $this->domainEvents = [];
 
         return $events;
+    }
+
+    protected function raise(object $event): void
+    {
+        $this->domainEvents[] = $event;
     }
 }

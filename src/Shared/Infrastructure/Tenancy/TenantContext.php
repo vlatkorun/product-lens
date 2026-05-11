@@ -9,7 +9,9 @@ use Symfony\Component\Uid\UuidV7;
 
 final class TenantContext
 {
-    public function __construct(private readonly EntityManagerInterface $entityManager) {}
+    public function __construct(private readonly EntityManagerInterface $entityManager)
+    {
+    }
 
     public function activate(UuidV7 $tenantId): void
     {

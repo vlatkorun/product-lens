@@ -13,15 +13,18 @@ final readonly class ShopifyOAuthClient implements ShopifyOAuthClientInterface
 {
     public function __construct(
         private HttpClientInterface $httpClient,
-        #[Autowire('%env(SHOPIFY_API_KEY)%')] private string $apiKey,
-        #[Autowire('%env(SHOPIFY_API_SECRET)%')] private string $apiSecret,
-    ) {}
+        #[Autowire('%env(SHOPIFY_API_KEY)%')]
+        private string $apiKey,
+        #[Autowire('%env(SHOPIFY_API_SECRET)%')]
+        private string $apiSecret,
+    ) {
+    }
 
     public function exchangeCodeForToken(string $shopDomain, string $code): ShopifyTokenResult
     {
         $response = $this->httpClient->request(
             'POST',
-            sprintf('https://%s/admin/oauth/access_token', $shopDomain),
+            \sprintf('https://%s/admin/oauth/access_token', $shopDomain),
             [
                 'json' => [
                     'client_id'     => $this->apiKey,

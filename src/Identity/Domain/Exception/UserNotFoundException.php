@@ -8,11 +8,11 @@ final class UserNotFoundException extends \DomainException
 {
     public static function forEmail(string $email): self
     {
-        return new self(sprintf('User with email "%s" not found.', $email));
+        return new self(\sprintf('User with email "%s" not found.', $email));
     }
 
     public static function forId(string $id): self
     {
-        return new self(sprintf('User with id "%s" not found.', $id));
+        return new self(\sprintf('User with id "%s" not found.', $id));
     }
 }

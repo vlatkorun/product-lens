@@ -6,7 +6,7 @@ namespace App\Tenancy\Domain\ValueObject;
 
 enum TenantStatus: string
 {
-    case Active      = 'active';
-    case Suspended   = 'suspended';
+    case Active = 'active';
+    case Suspended = 'suspended';
     case Uninstalled = 'uninstalled';
 }

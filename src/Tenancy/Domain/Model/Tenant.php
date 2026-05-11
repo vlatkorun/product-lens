@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Tenancy\Domain\Model;
 
 use App\Shared\Domain\Model\AggregateRoot;
+use App\Shared\Domain\ValueObject\FeatureFlag;
 use App\Tenancy\Domain\Event\TenantCreated;
 use App\Tenancy\Domain\Event\TenantReinstalled;
-use App\Shared\Domain\ValueObject\FeatureFlag;
 use App\Tenancy\Domain\Exception\FeatureAlreadyEnabledException;
 use App\Tenancy\Domain\ValueObject\TenantStatus;
 use App\Tenancy\Infrastructure\Persistence\DoctrineTenantRepository;
@@ -83,10 +83,12 @@ class Tenant extends AggregateRoot
     #[ORM\Column(name: 'feature_flags', type: 'jsonb', options: ['default' => '[]'])]
     private array $featureFlagsRaw = [];
 
-    /** @var FeatureFlag[] transient — hydrated from $featureFlagsRaw on PostLoad */
+    /** @var FeatureFlag[] transient — hydrated from on PostLoad */
     private array $featureFlags = [];
 
-    private function __construct() {}
+    private function __construct()
+    {
+    }
 
     public static function create(
         string $name,
@@ -94,9 +96,9 @@ class Tenant extends AggregateRoot
         string $shopDomain,
         \DateTimeImmutable $now,
     ): self {
-        if (!str_ends_with($shopDomain, '.myshopify.com')) {
+        if (!\str_ends_with($shopDomain, '.myshopify.com')) {
             throw new \InvalidArgumentException(
-                sprintf('shopDomain must end with .myshopify.com, got: %s', $shopDomain),
+                \sprintf('shopDomain must end with .myshopify.com, got: %s', $shopDomain),
             );
         }
 
@@ -136,22 +138,6 @@ class Tenant extends AggregateRoot
         $this->hydrateFeatureFlags();
     }
 
-    private function serializeFeatureFlags(): void
-    {
-        $this->featureFlagsRaw = array_map(
-            static fn(FeatureFlag $flag): string => $flag->value,
-            $this->featureFlags,
-        );
-    }
-
-    private function hydrateFeatureFlags(): void
-    {
-        $this->featureFlags = array_map(
-            static fn(string $value): FeatureFlag => FeatureFlag::from($value),
-            $this->featureFlagsRaw ?? [],
-        );
-    }
-
     // --- Feature flag management ---
 
     public function enableFeature(FeatureFlag $flag): void
@@ -165,17 +151,17 @@ class Tenant extends AggregateRoot
 
     public function disableFeature(FeatureFlag $flag): void
     {
-        $this->featureFlags = array_values(
-            array_filter(
+        $this->featureFlags = \array_values(
+            \array_filter(
                 $this->featureFlags,
-                static fn(FeatureFlag $f): bool => $f !== $flag,
+                static fn (FeatureFlag $f): bool => $f !== $flag,
             ),
         );
     }
 
     public function hasFeature(FeatureFlag $flag): bool
     {
-        return in_array($flag, $this->featureFlags, strict: true);
+        return \in_array($flag, $this->featureFlags, strict: true);
     }
 
     // --- Shopify OAuth credentials ---
@@ -325,5 +311,21 @@ class Tenant extends AggregateRoot
     public function featureFlags(): array
     {
         return $this->featureFlags;
+    }
+
+    private function serializeFeatureFlags(): void
+    {
+        $this->featureFlagsRaw = \array_map(
+            static fn (FeatureFlag $flag): string => $flag->value,
+            $this->featureFlags,
+        );
+    }
+
+    private function hydrateFeatureFlags(): void
+    {
+        $this->featureFlags = \array_map(
+            static fn (string $value): FeatureFlag => FeatureFlag::from($value),
+            $this->featureFlagsRaw ?? [],
+        );
     }
 }

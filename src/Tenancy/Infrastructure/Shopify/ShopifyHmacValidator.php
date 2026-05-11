@@ -10,8 +10,10 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 final readonly class ShopifyHmacValidator implements ShopifyHmacValidatorInterface
 {
     public function __construct(
-        #[Autowire('%env(SHOPIFY_API_SECRET)%')] private string $apiSecret,
-    ) {}
+        #[Autowire('%env(SHOPIFY_API_SECRET)%')]
+        private string $apiSecret,
+    ) {
+    }
 
     /**
      * @param array<string, string> $queryParams all query params including hmac
@@ -20,20 +22,20 @@ final readonly class ShopifyHmacValidator implements ShopifyHmacValidatorInterfa
     {
         $params = $queryParams;
         unset($params['hmac']);
-        ksort($params);
+        \ksort($params);
 
-        $message = implode('&', array_map(
-            static fn(string $key, string $value): string => $key . '=' . str_replace(
+        $message = \implode('&', \array_map(
+            static fn (string $key, string $value): string => $key . '=' . \str_replace(
                 ['%', '&'],
                 ['%25', '%26'],
                 $value,
             ),
-            array_keys($params),
-            array_values($params),
+            \array_keys($params),
+            \array_values($params),
         ));
 
-        $computed = hash_hmac('sha256', $message, $this->apiSecret);
+        $computed = \hash_hmac('sha256', $message, $this->apiSecret);
 
-        return hash_equals($computed, $hmac);
+        return \hash_equals($computed, $hmac);
     }
 }

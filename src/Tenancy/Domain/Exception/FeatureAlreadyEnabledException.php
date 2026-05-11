@@ -10,6 +10,6 @@ final class FeatureAlreadyEnabledException extends \DomainException
 {
     public static function forFlag(FeatureFlag $flag): self
     {
-        return new self(sprintf('Feature "%s" is already enabled for this tenant.', $flag->value));
+        return new self(\sprintf('Feature "%s" is already enabled for this tenant.', $flag->value));
     }
 }

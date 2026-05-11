@@ -18,7 +18,8 @@ final readonly class RescheduleStuckJobsHandler
     public function __construct(
         private SyncJobRepositoryInterface $syncJobRepository,
         private MessageBusInterface $commandBus,
-    ) {}
+    ) {
+    }
 
     public function __invoke(RescheduleStuckJobsCommand $command): void
     {

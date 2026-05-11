@@ -12,8 +12,10 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 final readonly class OAuthStateStore implements OAuthStateStoreInterface
 {
     public function __construct(
-        #[Autowire(service: 'cache.app')] private CacheItemPoolInterface $cache,
-    ) {}
+        #[Autowire(service: 'cache.app')]
+        private CacheItemPoolInterface $cache,
+    ) {
+    }
 
     public function store(string $state, string $shopDomain): void
     {

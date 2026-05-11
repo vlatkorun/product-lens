@@ -11,7 +11,9 @@ use Symfony\Component\Messenger\Middleware\StackInterface;
 
 final readonly class TenantContextMiddleware implements MiddlewareInterface
 {
-    public function __construct(private TenantContext $tenantContext) {}
+    public function __construct(private TenantContext $tenantContext)
+    {
+    }
 
     public function handle(Envelope $envelope, StackInterface $stack): Envelope
     {

@@ -57,7 +57,9 @@ class Product implements TenantScopedInterface
     #[ORM\Column(name: 'synced_at', type: 'datetime_immutable')]
     private \DateTimeImmutable $syncedAt;
 
-    private function __construct() {}
+    private function __construct()
+    {
+    }
 
     /**
      * @param list<array{url: string, altText: ?string, width: ?int, height: ?int}> $images

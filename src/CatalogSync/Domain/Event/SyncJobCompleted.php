@@ -16,5 +16,6 @@ final readonly class SyncJobCompleted implements AsyncDomainEvent
         public string $collectionGid,
         public array $featureFlags,
         public \DateTimeImmutable $occurredAt,
-    ) {}
+    ) {
+    }
 }

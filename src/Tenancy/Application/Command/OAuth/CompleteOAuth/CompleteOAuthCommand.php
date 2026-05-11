@@ -15,5 +15,6 @@ final readonly class CompleteOAuthCommand
         public string $state,
         public string $hmac,
         public array $queryParams,
-    ) {}
+    ) {
+    }
 }
