@@ -13,7 +13,7 @@ class UserTenantAccess
 {
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'tenantAccesses')]
-    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'resource_id', nullable: false, onDelete: 'CASCADE')]
     private User $user;
 
     #[ORM\Id]

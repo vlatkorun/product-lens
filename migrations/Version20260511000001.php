@@ -25,7 +25,8 @@ final class Version20260511000001 extends AbstractMigration
 
         $this->addSql(<<<'SQL'
                 CREATE TABLE tenants (
-                    id                     UUID         NOT NULL,
+                    id                     BIGINT       GENERATED ALWAYS AS IDENTITY NOT NULL,
+                    resource_id            UUID         NOT NULL,
                     name                   VARCHAR(255) NOT NULL,
                     shop_handle            VARCHAR(255) NOT NULL,
                     shop_domain            VARCHAR(255) NOT NULL,
@@ -49,6 +50,7 @@ final class Version20260511000001 extends AbstractMigration
             SQL);
 
         $this->addSql("ALTER TABLE tenants ADD CONSTRAINT chk_tenants_shop_domain CHECK (shop_domain LIKE '%.myshopify.com')");
+        $this->addSql('ALTER TABLE tenants ADD CONSTRAINT tenants_resource_id_uq UNIQUE (resource_id)');
         $this->addSql('CREATE UNIQUE INDEX tenants_shop_domain_uq ON tenants (shop_domain)');
         $this->addSql('CREATE UNIQUE INDEX tenants_shop_handle_uq ON tenants (shop_handle)');
         $this->addSql('CREATE INDEX tenants_status_idx ON tenants (status)');

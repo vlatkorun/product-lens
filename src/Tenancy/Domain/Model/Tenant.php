@@ -16,6 +16,7 @@ use Symfony\Component\Uid\UuidV7;
 
 #[ORM\Entity(repositoryClass: DoctrineTenantRepository::class)]
 #[ORM\Table(name: 'tenants')]
+#[ORM\UniqueConstraint(name: 'tenants_resource_id_uq', fields: ['resourceId'])]
 #[ORM\UniqueConstraint(name: 'tenants_shop_domain_uq', fields: ['shopDomain'])]
 #[ORM\UniqueConstraint(name: 'tenants_shop_handle_uq', fields: ['shopHandle'])]
 #[ORM\Index(name: 'tenants_status_idx', fields: ['status'])]
@@ -24,9 +25,12 @@ use Symfony\Component\Uid\UuidV7;
 class Tenant extends AggregateRoot
 {
     #[ORM\Id]
-    #[ORM\Column(type: 'uuid')]
-    #[ORM\GeneratedValue(strategy: 'NONE')]
-    private UuidV7 $id;
+    #[ORM\Column(type: 'bigint')]
+    #[ORM\GeneratedValue(strategy: 'IDENTITY')]
+    private ?string $id = null;
+
+    #[ORM\Column(name: 'resource_id', type: 'uuid')]
+    private UuidV7 $resourceId;
 
     #[ORM\Column(length: 255)]
     private string $name;
@@ -103,7 +107,7 @@ class Tenant extends AggregateRoot
         }
 
         $tenant = new self();
-        $tenant->id = new UuidV7();
+        $tenant->resourceId = new UuidV7();
         $tenant->name = $name;
         $tenant->shopHandle = $shopHandle;
         $tenant->shopDomain = $shopDomain;
@@ -112,7 +116,7 @@ class Tenant extends AggregateRoot
         $tenant->createdAt = $now;
         $tenant->updatedAt = $now;
 
-        $tenant->raise(new TenantCreated($tenant->id->toRfc4122(), $shopDomain, $now));
+        $tenant->raise(new TenantCreated($tenant->resourceId->toRfc4122(), $shopDomain, $now));
 
         return $tenant;
     }
@@ -222,14 +226,14 @@ class Tenant extends AggregateRoot
     {
         $this->reactivate();
         $this->installedAt = $at;
-        $this->raise(new TenantReinstalled($this->id->toRfc4122(), $this->shopDomain, $at));
+        $this->raise(new TenantReinstalled($this->resourceId->toRfc4122(), $this->shopDomain, $at));
     }
 
     // --- Accessors ---
 
     public function id(): UuidV7
     {
-        return $this->id;
+        return $this->resourceId;
     }
 
     public function name(): string

@@ -20,13 +20,13 @@ final readonly class SyncJobClaimer
         try {
             $rows = $this->connection->executeQuery(
                 <<<'SQL'
-                    SELECT mc.id, mc.tenant_id, mc.collection_gid
-                    FROM collection_sync_configs mc
+                    SELECT mc.resource_id, mc.tenant_id, mc.collection_gid
+                    FROM tenant_monitored_collections mc
                     WHERE mc.enabled = true
                       AND NOT EXISTS (
                           SELECT 1
                           FROM sync_jobs sj
-                          WHERE sj.monitored_collection_id = mc.id
+                          WHERE sj.monitored_collection_id = mc.resource_id
                             AND sj.status IN ('pending', 'running')
                       )
                     FOR UPDATE SKIP LOCKED
@@ -40,12 +40,12 @@ final readonly class SyncJobClaimer
 
                 $this->connection->executeStatement(
                     'INSERT INTO sync_jobs
-                        (id, tenant_id, monitored_collection_id, collection_gid, status, total_processed, started_at)
+                        (resource_id, tenant_id, monitored_collection_id, collection_gid, status, total_processed, started_at)
                      VALUES (?, ?, ?, ?, \'pending\', 0, ?)',
                     [
                         $syncJobId,
                         $row['tenant_id'],
-                        $row['id'],
+                        $row['resource_id'],
                         $row['collection_gid'],
                         $now->format('Y-m-d H:i:s'),
                     ],

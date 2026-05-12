@@ -33,7 +33,7 @@ class DoctrineTenantRepository extends ServiceEntityRepository implements Tenant
 
     public function findById(UuidV7 $id): ?Tenant
     {
-        return $this->find($id);
+        return $this->findOneBy(['resourceId' => $id]);
     }
 
     public function findByShopDomain(string $shopDomain): ?Tenant

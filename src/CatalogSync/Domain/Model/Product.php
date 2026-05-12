@@ -13,15 +13,19 @@ use Symfony\Component\Uid\UuidV7;
 
 #[ORM\Entity(repositoryClass: DoctrineProductRepository::class)]
 #[ORM\Table(name: 'products')]
+#[ORM\UniqueConstraint(name: 'products_resource_id_uq', fields: ['resourceId'])]
 #[ORM\UniqueConstraint(name: 'products_tenant_shopify_gid_uq', columns: ['tenant_id', 'shopify_gid'])]
 #[ORM\Index(name: 'products_tenant_id_idx', columns: ['tenant_id'])]
 #[ORM\Index(name: 'products_synced_at_idx', columns: ['synced_at'])]
 class Product implements TenantScopedInterface
 {
     #[ORM\Id]
-    #[ORM\Column(type: 'uuid')]
-    #[ORM\GeneratedValue(strategy: 'NONE')]
-    private UuidV7 $id;
+    #[ORM\Column(type: 'bigint')]
+    #[ORM\GeneratedValue(strategy: 'IDENTITY')]
+    private ?string $id = null;
+
+    #[ORM\Column(name: 'resource_id', type: 'uuid')]
+    private UuidV7 $resourceId;
 
     #[ORM\Column(name: 'shopify_gid', length: 255)]
     private string $shopifyGidRaw;
@@ -78,7 +82,7 @@ class Product implements TenantScopedInterface
         \DateTimeImmutable $syncedAt,
     ): self {
         $product = new self();
-        $product->id = new UuidV7();
+        $product->resourceId = new UuidV7();
         $product->tenantId = $tenantId;
         $product->shopifyGidRaw = $shopifyGid->value;
         $product->collectionGidRaw = $collectionGid->value;
@@ -96,7 +100,7 @@ class Product implements TenantScopedInterface
 
     public function id(): UuidV7
     {
-        return $this->id;
+        return $this->resourceId;
     }
 
     public function shopifyGid(): ShopifyGid

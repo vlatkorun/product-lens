@@ -27,8 +27,9 @@ final class Version20260511000002 extends AbstractMigration
 
         $this->addSql(<<<'SQL'
                 CREATE TABLE users (
-                    id         UUID         NOT NULL,
-                    email      VARCHAR(255) NOT NULL,
+                    id          BIGINT       GENERATED ALWAYS AS IDENTITY NOT NULL,
+                    resource_id UUID         NOT NULL,
+                    email       VARCHAR(255) NOT NULL,
                     password   VARCHAR(255) NOT NULL,
                     role       user_role    NOT NULL,
                     status     user_status  NOT NULL DEFAULT 'active',
@@ -38,6 +39,7 @@ final class Version20260511000002 extends AbstractMigration
                 )
             SQL);
 
+        $this->addSql('ALTER TABLE users ADD CONSTRAINT users_resource_id_uq UNIQUE (resource_id)');
         $this->addSql('CREATE UNIQUE INDEX users_email_uq ON users (email)');
         $this->addSql('CREATE INDEX users_role_idx ON users (role)');
         $this->addSql('CREATE INDEX users_status_idx ON users (status)');
@@ -47,8 +49,8 @@ final class Version20260511000002 extends AbstractMigration
                     user_id   UUID NOT NULL,
                     tenant_id UUID NOT NULL,
                     PRIMARY KEY (user_id, tenant_id),
-                    CONSTRAINT fk_users_tenants_user_id   FOREIGN KEY (user_id)   REFERENCES users   (id) ON DELETE CASCADE,
-                    CONSTRAINT fk_users_tenants_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants (id) ON DELETE CASCADE
+                    CONSTRAINT fk_users_tenants_user_id   FOREIGN KEY (user_id)   REFERENCES users   (resource_id) ON DELETE CASCADE,
+                    CONSTRAINT fk_users_tenants_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants (resource_id) ON DELETE CASCADE
                 )
             SQL);
 

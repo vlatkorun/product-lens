@@ -18,6 +18,7 @@ use Symfony\Component\Uid\UuidV7;
 
 #[ORM\Entity(repositoryClass: DoctrineUserRepository::class)]
 #[ORM\Table(name: 'users')]
+#[ORM\UniqueConstraint(name: 'users_resource_id_uq', fields: ['resourceId'])]
 #[ORM\UniqueConstraint(name: 'users_email_uq', fields: ['email'])]
 #[ORM\Index(name: 'users_role_idx', fields: ['role'])]
 #[ORM\Index(name: 'users_status_idx', fields: ['status'])]
@@ -25,9 +26,12 @@ use Symfony\Component\Uid\UuidV7;
 class User extends AggregateRoot implements PasswordAuthenticatedUserInterface, UserInterface
 {
     #[ORM\Id]
-    #[ORM\Column(type: 'uuid')]
-    #[ORM\GeneratedValue(strategy: 'NONE')]
-    private UuidV7 $id;
+    #[ORM\Column(type: 'bigint')]
+    #[ORM\GeneratedValue(strategy: 'IDENTITY')]
+    private ?string $id = null;
+
+    #[ORM\Column(name: 'resource_id', type: 'uuid')]
+    private UuidV7 $resourceId;
 
     #[ORM\Column(length: 255)]
     private string $email;
@@ -69,7 +73,7 @@ class User extends AggregateRoot implements PasswordAuthenticatedUserInterface, 
         }
 
         $user = new self();
-        $user->id = new UuidV7();
+        $user->resourceId = new UuidV7();
         $user->email = $email;
         $user->password = $hashedPassword;
         $user->role = $role;
@@ -77,7 +81,7 @@ class User extends AggregateRoot implements PasswordAuthenticatedUserInterface, 
         $user->createdAt = $now;
         $user->updatedAt = $now;
 
-        $user->raise(new UserCreated($user->id->toRfc4122(), $email, $role->value, null, $now));
+        $user->raise(new UserCreated($user->resourceId->toRfc4122(), $email, $role->value, null, $now));
 
         return $user;
     }
@@ -96,7 +100,7 @@ class User extends AggregateRoot implements PasswordAuthenticatedUserInterface, 
         }
 
         $user = new self();
-        $user->id = new UuidV7();
+        $user->resourceId = new UuidV7();
         $user->email = $email;
         $user->password = $hashedPassword;
         $user->role = $role;
@@ -105,7 +109,7 @@ class User extends AggregateRoot implements PasswordAuthenticatedUserInterface, 
         $user->updatedAt = $now;
         $user->grantTenantAccess($tenantId);
 
-        $user->raise(new UserCreated($user->id->toRfc4122(), $email, $role->value, $tenantId->toRfc4122(), $now));
+        $user->raise(new UserCreated($user->resourceId->toRfc4122(), $email, $role->value, $tenantId->toRfc4122(), $now));
 
         return $user;
     }
@@ -192,7 +196,7 @@ class User extends AggregateRoot implements PasswordAuthenticatedUserInterface, 
 
     public function id(): UuidV7
     {
-        return $this->id;
+        return $this->resourceId;
     }
 
     public function email(): string

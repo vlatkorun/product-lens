@@ -33,9 +33,9 @@ class DoctrineProductRepository extends ServiceEntityRepository implements Produ
         $conn->executeStatement(
             <<<'SQL'
                 INSERT INTO products
-                    (id, shopify_gid, tenant_id, collection_gid, title, handle, vendor, product_type, status, images, featured_image_url, synced_at)
+                    (resource_id, shopify_gid, tenant_id, collection_gid, title, handle, vendor, product_type, status, images, featured_image_url, synced_at)
                 VALUES
-                    (:id, :shopify_gid, :tenant_id, :collection_gid, :title, :handle, :vendor, :product_type, :status, :images, :featured_image_url, :synced_at)
+                    (:resource_id, :shopify_gid, :tenant_id, :collection_gid, :title, :handle, :vendor, :product_type, :status, :images, :featured_image_url, :synced_at)
                 ON CONFLICT (tenant_id, shopify_gid) DO UPDATE SET
                     collection_gid     = EXCLUDED.collection_gid,
                     title              = EXCLUDED.title,
@@ -48,7 +48,7 @@ class DoctrineProductRepository extends ServiceEntityRepository implements Produ
                     synced_at          = EXCLUDED.synced_at
                 SQL,
             [
-                'id'                 => $product->id()->toRfc4122(),
+                'resource_id'        => $product->id()->toRfc4122(),
                 'shopify_gid'        => $product->shopifyGid()->value,
                 'tenant_id'          => $product->tenantId()->toRfc4122(),
                 'collection_gid'     => $product->collectionGid()->value,

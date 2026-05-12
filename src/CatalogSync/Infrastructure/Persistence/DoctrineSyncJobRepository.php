@@ -12,6 +12,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\UuidV7;
 
+/** @extends ServiceEntityRepository<SyncJob> */
 class DoctrineSyncJobRepository extends ServiceEntityRepository implements SyncJobRepositoryInterface
 {
     public function __construct(
@@ -34,7 +35,29 @@ class DoctrineSyncJobRepository extends ServiceEntityRepository implements SyncJ
 
     public function findById(UuidV7 $id): ?SyncJob
     {
-        return $this->find($id);
+        return $this->findOneBy(['resourceId' => $id]);
+    }
+
+    public function findByIdForProcessing(UuidV7 $id): ?SyncJob
+    {
+        $em = $this->getEntityManager();
+
+        if (!$em->getConnection()->isTransactionActive()) {
+            throw new \LogicException(
+                'findByIdForProcessing() must be called inside an open transaction so the row lock is held until commit.',
+            );
+        }
+
+        $lockedId = $em->getConnection()->executeQuery(
+            'SELECT id FROM sync_jobs WHERE resource_id = ? FOR UPDATE SKIP LOCKED',
+            [$id->toRfc4122()],
+        )->fetchOne();
+
+        if ($lockedId === false) {
+            return null;
+        }
+
+        return $this->find($lockedId);
     }
 
     /** @return list<SyncJob> */

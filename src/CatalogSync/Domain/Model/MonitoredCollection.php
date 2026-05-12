@@ -6,6 +6,7 @@ namespace App\CatalogSync\Domain\Model;
 
 use App\CatalogSync\Domain\Event\CollectionMonitoringDisabled;
 use App\CatalogSync\Domain\Event\CollectionMonitoringEnabled;
+use App\CatalogSync\Domain\ValueObject\MonitoredCollectionConfig;
 use App\CatalogSync\Domain\ValueObject\ShopifyGid;
 use App\CatalogSync\Infrastructure\Persistence\DoctrineMonitoredCollectionRepository;
 use App\Shared\Domain\Model\AggregateRoot;
@@ -15,16 +16,20 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\UuidV7;
 
 #[ORM\Entity(repositoryClass: DoctrineMonitoredCollectionRepository::class)]
-#[ORM\Table(name: 'collection_sync_configs')]
-#[ORM\UniqueConstraint(name: 'collection_sync_configs_tenant_collection_uq', columns: ['tenant_id', 'collection_gid'])]
-#[ORM\Index(name: 'collection_sync_configs_tenant_id_idx', columns: ['tenant_id'])]
+#[ORM\Table(name: 'tenant_monitored_collections')]
+#[ORM\UniqueConstraint(name: 'tenant_monitored_collections_resource_id_uq', fields: ['resourceId'])]
+#[ORM\UniqueConstraint(name: 'tenant_monitored_collections_tenant_collection_uq', columns: ['tenant_id', 'collection_gid'])]
+#[ORM\Index(name: 'tenant_monitored_collections_tenant_id_idx', columns: ['tenant_id'])]
 #[ORM\HasLifecycleCallbacks]
 class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
 {
     #[ORM\Id]
-    #[ORM\Column(type: 'uuid')]
-    #[ORM\GeneratedValue(strategy: 'NONE')]
-    private UuidV7 $id;
+    #[ORM\Column(type: 'bigint')]
+    #[ORM\GeneratedValue(strategy: 'IDENTITY')]
+    private ?string $id = null;
+
+    #[ORM\Column(name: 'resource_id', type: 'uuid')]
+    private UuidV7 $resourceId;
 
     #[ORM\Column(name: 'tenant_id', type: 'uuid')]
     private UuidV7 $tenantId;
@@ -35,12 +40,11 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
     #[ORM\Column(name: 'collection_name', length: 255)]
     private string $collectionName;
 
-    /** @var string[] */
-    #[ORM\Column(name: 'feature_flags', type: 'jsonb', options: ['default' => '[]'])]
-    private array $featureFlagsRaw = [];
+    /** @var array{per_page: int, feature_flags: string[], priority: int} */
+    #[ORM\Column(name: 'config', type: 'jsonb', options: ['default' => '{"per_page": 50, "feature_flags": [], "priority": 0}'])]
+    private array $configRaw = ['per_page' => 50, 'feature_flags' => [], 'priority' => 0];
 
-    /** @var list<FeatureFlag> */
-    private array $featureFlags = [];
+    private MonitoredCollectionConfig $config;
 
     #[ORM\Column]
     private bool $enabled;
@@ -55,28 +59,27 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
     {
     }
 
-    /** @param list<FeatureFlag> $featureFlags */
     public static function create(
         UuidV7 $tenantId,
         ShopifyGid $collectionGid,
         string $name,
-        array $featureFlags,
+        MonitoredCollectionConfig $config,
         bool $enabled,
         \DateTimeImmutable $now,
     ): self {
         $collection = new self();
-        $collection->id = new UuidV7();
+        $collection->resourceId = new UuidV7();
         $collection->tenantId = $tenantId;
         $collection->collectionGidRaw = $collectionGid->value;
         $collection->collectionName = $name;
-        $collection->featureFlags = $featureFlags;
+        $collection->config = $config;
         $collection->enabled = $enabled;
         $collection->createdAt = $now;
         $collection->updatedAt = $now;
 
         if ($enabled) {
             $collection->raise(new CollectionMonitoringEnabled(
-                $collection->id->toRfc4122(),
+                $collection->resourceId->toRfc4122(),
                 $tenantId->toRfc4122(),
                 $collectionGid->value,
                 $now,
@@ -94,7 +97,7 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
 
         $this->enabled = true;
         $this->raise(new CollectionMonitoringEnabled(
-            $this->id->toRfc4122(),
+            $this->resourceId->toRfc4122(),
             $this->tenantId->toRfc4122(),
             $this->collectionGidRaw,
             new \DateTimeImmutable(),
@@ -109,17 +112,16 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
 
         $this->enabled = false;
         $this->raise(new CollectionMonitoringDisabled(
-            $this->id->toRfc4122(),
+            $this->resourceId->toRfc4122(),
             $this->tenantId->toRfc4122(),
             $this->collectionGidRaw,
             new \DateTimeImmutable(),
         ));
     }
 
-    /** @param list<FeatureFlag> $featureFlags */
-    public function updateFeatureFlags(array $featureFlags): void
+    public function updateConfig(MonitoredCollectionConfig $config): void
     {
-        $this->featureFlags = $featureFlags;
+        $this->config = $config;
     }
 
     public function rename(string $name): void
@@ -130,28 +132,32 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
     #[ORM\PostLoad]
     public function onPostLoad(): void
     {
-        $this->featureFlags = \array_map(
-            static fn (string $v): FeatureFlag => FeatureFlag::from($v),
-            $this->featureFlagsRaw,
+        $this->config = new MonitoredCollectionConfig(
+            perPage: $this->configRaw['per_page'],
+            featureFlags: \array_values(\array_map(
+                static fn (string $v): FeatureFlag => FeatureFlag::from($v),
+                $this->configRaw['feature_flags'],
+            )),
+            priority: $this->configRaw['priority'],
         );
     }
 
     #[ORM\PrePersist]
     public function onPrePersist(): void
     {
-        $this->serializeFeatureFlags();
+        $this->serializeConfig();
     }
 
     #[ORM\PreUpdate]
     public function onPreUpdate(): void
     {
         $this->updatedAt = new \DateTimeImmutable();
-        $this->serializeFeatureFlags();
+        $this->serializeConfig();
     }
 
     public function id(): UuidV7
     {
-        return $this->id;
+        return $this->resourceId;
     }
 
     public function tenantId(): UuidV7
@@ -169,10 +175,15 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
         return $this->collectionName;
     }
 
+    public function config(): MonitoredCollectionConfig
+    {
+        return $this->config;
+    }
+
     /** @return list<FeatureFlag> */
     public function featureFlags(): array
     {
-        return $this->featureFlags;
+        return $this->config->featureFlags;
     }
 
     public function isEnabled(): bool
@@ -190,11 +201,15 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
         return $this->updatedAt;
     }
 
-    private function serializeFeatureFlags(): void
+    private function serializeConfig(): void
     {
-        $this->featureFlagsRaw = \array_map(
-            static fn (FeatureFlag $f): string => $f->value,
-            $this->featureFlags,
-        );
+        $this->configRaw = [
+            'per_page'      => $this->config->perPage,
+            'feature_flags' => \array_map(
+                static fn (FeatureFlag $f): string => $f->value,
+                $this->config->featureFlags,
+            ),
+            'priority' => $this->config->priority,
+        ];
     }
 }

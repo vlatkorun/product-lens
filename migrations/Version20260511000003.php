@@ -12,7 +12,7 @@ final class Version20260511000003 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Create CatalogSync tables: collection_sync_configs, sync_jobs, products';
+        return 'Create CatalogSync tables: tenant_monitored_collections, sync_jobs, products';
     }
 
     public function up(Schema $schema): void
@@ -26,27 +26,30 @@ final class Version20260511000003 extends AbstractMigration
         $this->addSql("CREATE TYPE product_status AS ENUM ('active', 'archived', 'draft')");
 
         $this->addSql(<<<'SQL'
-                CREATE TABLE collection_sync_configs (
-                    id              UUID         NOT NULL,
+                CREATE TABLE tenant_monitored_collections (
+                    id              BIGINT       GENERATED ALWAYS AS IDENTITY NOT NULL,
+                    resource_id     UUID         NOT NULL,
                     tenant_id       UUID         NOT NULL,
                     collection_gid  VARCHAR(255) NOT NULL,
                     collection_name VARCHAR(255) NOT NULL,
-                    feature_flags   JSONB        NOT NULL DEFAULT '[]',
+                    config          JSONB        NOT NULL DEFAULT '{"per_page": 50, "feature_flags": [], "priority": 0}',
                     enabled         BOOLEAN      NOT NULL DEFAULT true,
                     created_at      TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
                     updated_at      TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
                     PRIMARY KEY (id),
-                    CONSTRAINT fk_collection_sync_configs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants (id) ON DELETE CASCADE
+                    CONSTRAINT fk_tenant_monitored_collections_tenant FOREIGN KEY (tenant_id) REFERENCES tenants (resource_id) ON DELETE CASCADE
                 )
             SQL);
 
-        $this->addSql('CREATE UNIQUE INDEX collection_sync_configs_tenant_collection_uq ON collection_sync_configs (tenant_id, collection_gid)');
-        $this->addSql('CREATE INDEX collection_sync_configs_tenant_id_idx ON collection_sync_configs (tenant_id)');
-        $this->addSql('CREATE INDEX collection_sync_configs_enabled_idx ON collection_sync_configs (tenant_id) WHERE enabled = true');
+        $this->addSql('ALTER TABLE tenant_monitored_collections ADD CONSTRAINT tenant_monitored_collections_resource_id_uq UNIQUE (resource_id)');
+        $this->addSql('CREATE UNIQUE INDEX tenant_monitored_collections_tenant_collection_uq ON tenant_monitored_collections (tenant_id, collection_gid)');
+        $this->addSql('CREATE INDEX tenant_monitored_collections_tenant_id_idx ON tenant_monitored_collections (tenant_id)');
+        $this->addSql('CREATE INDEX tenant_monitored_collections_enabled_idx ON tenant_monitored_collections (tenant_id) WHERE enabled = true');
 
         $this->addSql(<<<'SQL'
                 CREATE TABLE sync_jobs (
-                    id                      UUID         NOT NULL,
+                    id                      BIGINT       GENERATED ALWAYS AS IDENTITY NOT NULL,
+                    resource_id             UUID         NOT NULL,
                     tenant_id               UUID         NOT NULL,
                     monitored_collection_id UUID         NOT NULL,
                     collection_gid          VARCHAR(255) NOT NULL,
@@ -58,11 +61,12 @@ final class Version20260511000003 extends AbstractMigration
                     failed_at               TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
                     failure_reason          TEXT         DEFAULT NULL,
                     PRIMARY KEY (id),
-                    CONSTRAINT fk_sync_jobs_tenant               FOREIGN KEY (tenant_id)               REFERENCES tenants               (id) ON DELETE CASCADE,
-                    CONSTRAINT fk_sync_jobs_monitored_collection FOREIGN KEY (monitored_collection_id) REFERENCES collection_sync_configs (id) ON DELETE CASCADE
+                    CONSTRAINT fk_sync_jobs_tenant               FOREIGN KEY (tenant_id)               REFERENCES tenants                        (resource_id) ON DELETE CASCADE,
+                    CONSTRAINT fk_sync_jobs_monitored_collection FOREIGN KEY (monitored_collection_id) REFERENCES tenant_monitored_collections (resource_id) ON DELETE CASCADE
                 )
             SQL);
 
+        $this->addSql('ALTER TABLE sync_jobs ADD CONSTRAINT sync_jobs_resource_id_uq UNIQUE (resource_id)');
         $this->addSql('CREATE INDEX sync_jobs_tenant_id_idx ON sync_jobs (tenant_id)');
         $this->addSql('CREATE INDEX sync_jobs_monitored_collection_id_idx ON sync_jobs (monitored_collection_id)');
         $this->addSql('CREATE INDEX sync_jobs_status_idx ON sync_jobs (status)');
@@ -71,7 +75,8 @@ final class Version20260511000003 extends AbstractMigration
 
         $this->addSql(<<<'SQL'
                 CREATE TABLE products (
-                    id                 UUID           NOT NULL,
+                    id                 BIGINT         GENERATED ALWAYS AS IDENTITY NOT NULL,
+                    resource_id        UUID           NOT NULL,
                     shopify_gid        VARCHAR(255)   NOT NULL,
                     tenant_id          UUID           NOT NULL,
                     collection_gid     VARCHAR(255)   NOT NULL,
@@ -84,10 +89,11 @@ final class Version20260511000003 extends AbstractMigration
                     featured_image_url TEXT           DEFAULT NULL,
                     synced_at          TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
                     PRIMARY KEY (id),
-                    CONSTRAINT fk_products_tenant FOREIGN KEY (tenant_id) REFERENCES tenants (id) ON DELETE CASCADE
+                    CONSTRAINT fk_products_tenant FOREIGN KEY (tenant_id) REFERENCES tenants (resource_id) ON DELETE CASCADE
                 )
             SQL);
 
+        $this->addSql('ALTER TABLE products ADD CONSTRAINT products_resource_id_uq UNIQUE (resource_id)');
         $this->addSql('CREATE UNIQUE INDEX products_tenant_shopify_gid_uq ON products (tenant_id, shopify_gid)');
         $this->addSql('CREATE INDEX products_tenant_id_idx ON products (tenant_id)');
         $this->addSql('CREATE INDEX products_collection_gid_idx ON products (tenant_id, collection_gid)');
@@ -99,7 +105,7 @@ final class Version20260511000003 extends AbstractMigration
     {
         $this->addSql('DROP TABLE products');
         $this->addSql('DROP TABLE sync_jobs');
-        $this->addSql('DROP TABLE collection_sync_configs');
+        $this->addSql('DROP TABLE tenant_monitored_collections');
         $this->addSql('DROP TYPE sync_status');
         $this->addSql('DROP TYPE product_status');
     }

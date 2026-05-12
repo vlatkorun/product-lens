@@ -12,6 +12,8 @@ final readonly class ConfigureMonitoredCollectionCommand
         public string $collectionGid,
         public string $collectionName,
         public array $featureFlags,
+        public int $perPage = 50,
+        public int $priority = 0,
         public bool $enabled = true,
     ) {
     }

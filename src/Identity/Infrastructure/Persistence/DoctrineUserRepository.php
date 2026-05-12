@@ -22,7 +22,7 @@ class DoctrineUserRepository extends ServiceEntityRepository implements UserRepo
 
     public function findById(UuidV7 $id): ?User
     {
-        return $this->find($id);
+        return $this->findOneBy(['resourceId' => $id]);
     }
 
     public function findByEmail(string $email): ?User

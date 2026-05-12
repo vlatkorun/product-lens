@@ -6,6 +6,7 @@ namespace App\CatalogSync\Domain\Model;
 
 use App\CatalogSync\Domain\Event\SyncJobCompleted;
 use App\CatalogSync\Domain\Event\SyncJobFailed;
+use App\CatalogSync\Domain\Event\SyncJobPageSkipped;
 use App\CatalogSync\Domain\Event\SyncJobProcessed;
 use App\CatalogSync\Domain\Event\SyncJobStarted;
 use App\CatalogSync\Domain\ValueObject\ShopifyGid;
@@ -23,14 +24,18 @@ use Symfony\Component\Uid\UuidV7;
 #[ORM\Index(name: 'sync_jobs_tenant_id_idx', columns: ['tenant_id'])]
 #[ORM\Index(name: 'sync_jobs_monitored_collection_id_idx', columns: ['monitored_collection_id'])]
 #[ORM\Index(name: 'sync_jobs_status_idx', columns: ['status'])]
+#[ORM\UniqueConstraint(name: 'sync_jobs_resource_id_uq', fields: ['resourceId'])]
 #[ORM\Index(name: 'sync_jobs_started_at_idx', columns: ['started_at'])]
 #[ORM\HasLifecycleCallbacks]
 class SyncJob extends AggregateRoot implements TenantScopedInterface
 {
     #[ORM\Id]
-    #[ORM\Column(type: 'uuid')]
-    #[ORM\GeneratedValue(strategy: 'NONE')]
-    private UuidV7 $id;
+    #[ORM\Column(type: 'bigint')]
+    #[ORM\GeneratedValue(strategy: 'IDENTITY')]
+    private ?string $id = null;
+
+    #[ORM\Column(name: 'resource_id', type: 'uuid')]
+    private UuidV7 $resourceId;
 
     #[ORM\Column(name: 'tenant_id', type: 'uuid')]
     private UuidV7 $tenantId;
@@ -76,7 +81,7 @@ class SyncJob extends AggregateRoot implements TenantScopedInterface
         \DateTimeImmutable $now,
     ): self {
         $job = new self();
-        $job->id = new UuidV7();
+        $job->resourceId = new UuidV7();
         $job->tenantId = $tenantId;
         $job->monitoredCollectionId = $monitoredCollectionId;
         $job->collectionGidRaw = $collectionGid->value;
@@ -92,7 +97,7 @@ class SyncJob extends AggregateRoot implements TenantScopedInterface
         $this->status = SyncStatus::Running;
 
         $this->raise(new SyncJobStarted(
-            $this->id->toRfc4122(),
+            $this->resourceId->toRfc4122(),
             $this->tenantId->toRfc4122(),
             $this->collectionGidRaw,
             new \DateTimeImmutable(),
@@ -102,13 +107,24 @@ class SyncJob extends AggregateRoot implements TenantScopedInterface
     /** @param list<FeatureFlag> $featureFlags */
     public function recordPage(?string $endCursor, bool $hasNextPage, int $count, array $featureFlags): void
     {
+        if ($this->status !== SyncStatus::Running) {
+            $this->raise(new SyncJobPageSkipped(
+                $this->resourceId->toRfc4122(),
+                $this->tenantId->toRfc4122(),
+                $this->status,
+                new \DateTimeImmutable(),
+            ));
+
+            return;
+        }
+
         $this->cursor = new SyncCursor($endCursor, $hasNextPage);
         $this->totalProcessed += $count;
 
         $now = new \DateTimeImmutable();
 
         $this->raise(new SyncJobProcessed(
-            $this->id->toRfc4122(),
+            $this->resourceId->toRfc4122(),
             $count,
             $this->totalProcessed,
             $now,
@@ -119,7 +135,7 @@ class SyncJob extends AggregateRoot implements TenantScopedInterface
             $this->completedAt = $now;
 
             $this->raise(new SyncJobCompleted(
-                $this->id->toRfc4122(),
+                $this->resourceId->toRfc4122(),
                 $this->tenantId->toRfc4122(),
                 $this->collectionGidRaw,
                 $featureFlags,
@@ -135,7 +151,7 @@ class SyncJob extends AggregateRoot implements TenantScopedInterface
         $this->failedAt = $at;
 
         $this->raise(new SyncJobFailed(
-            $this->id->toRfc4122(),
+            $this->resourceId->toRfc4122(),
             $this->tenantId->toRfc4122(),
             $reason,
             $at,
@@ -161,7 +177,7 @@ class SyncJob extends AggregateRoot implements TenantScopedInterface
 
     public function id(): UuidV7
     {
-        return $this->id;
+        return $this->resourceId;
     }
 
     public function tenantId(): UuidV7
