@@ -4,25 +4,25 @@ declare(strict_types=1);
 
 namespace App\CatalogSync\Infrastructure\Persistence;
 
-use App\CatalogSync\Domain\Model\SyncJob;
-use App\CatalogSync\Domain\Repository\SyncJobRepositoryInterface;
+use App\CatalogSync\Domain\Model\MonitoredCollectionSync;
+use App\CatalogSync\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
 use App\CatalogSync\Domain\ValueObject\SyncStatus;
 use App\Shared\Infrastructure\Event\DomainEventPublisher;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\UuidV7;
 
-/** @extends ServiceEntityRepository<SyncJob> */
-class DoctrineSyncJobRepository extends ServiceEntityRepository implements SyncJobRepositoryInterface
+/** @extends ServiceEntityRepository<MonitoredCollectionSync> */
+class DoctrineMonitoredCollectionSyncRepository extends ServiceEntityRepository implements MonitoredCollectionSyncRepositoryInterface
 {
     public function __construct(
         ManagerRegistry $registry,
         private readonly DomainEventPublisher $eventPublisher,
     ) {
-        parent::__construct($registry, SyncJob::class);
+        parent::__construct($registry, MonitoredCollectionSync::class);
     }
 
-    public function save(SyncJob $job): void
+    public function save(MonitoredCollectionSync $job): void
     {
         $em = $this->getEntityManager();
         $em->persist($job);
@@ -33,12 +33,12 @@ class DoctrineSyncJobRepository extends ServiceEntityRepository implements SyncJ
         }
     }
 
-    public function findById(UuidV7 $id): ?SyncJob
+    public function findById(UuidV7 $id): ?MonitoredCollectionSync
     {
         return $this->findOneBy(['resourceId' => $id]);
     }
 
-    public function findByIdForProcessing(UuidV7 $id): ?SyncJob
+    public function findByIdForProcessing(UuidV7 $id): ?MonitoredCollectionSync
     {
         $em = $this->getEntityManager();
 
@@ -49,7 +49,7 @@ class DoctrineSyncJobRepository extends ServiceEntityRepository implements SyncJ
         }
 
         $lockedId = $em->getConnection()->executeQuery(
-            'SELECT id FROM sync_jobs WHERE resource_id = ? FOR UPDATE SKIP LOCKED',
+            'SELECT id FROM tenant_monitored_collections_sync WHERE resource_id = ? FOR UPDATE SKIP LOCKED',
             [$id->toRfc4122()],
         )->fetchOne();
 
@@ -60,10 +60,10 @@ class DoctrineSyncJobRepository extends ServiceEntityRepository implements SyncJ
         return $this->find($lockedId);
     }
 
-    /** @return list<SyncJob> */
+    /** @return list<MonitoredCollectionSync> */
     public function findStuckPending(\DateTimeImmutable $olderThan): array
     {
-        /* @var list<SyncJob> */
+        /* @var list<MonitoredCollectionSync> */
         return $this->createQueryBuilder('j')
             ->where('j.status = :status')
             ->andWhere('j.startedAt < :olderThan')

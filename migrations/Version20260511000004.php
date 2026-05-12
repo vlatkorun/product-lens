@@ -22,7 +22,7 @@ final class Version20260511000004 extends AbstractMigration
             'Migration can only be executed safely on PostgreSQL.',
         );
 
-        foreach (['collection_sync_configs', 'sync_jobs', 'products'] as $table) {
+        foreach (['tenant_monitored_collections', 'tenant_monitored_collections_sync', 'products'] as $table) {
             $this->addSql(\sprintf('ALTER TABLE %s ENABLE ROW LEVEL SECURITY', $table));
             $this->addSql(\sprintf('ALTER TABLE %s FORCE ROW LEVEL SECURITY', $table));
             $this->addSql(\sprintf(
@@ -38,7 +38,7 @@ final class Version20260511000004 extends AbstractMigration
     {
         $this->addSql('DROP ROLE IF EXISTS app_scheduler');
 
-        foreach (['collection_sync_configs', 'sync_jobs', 'products'] as $table) {
+        foreach (['tenant_monitored_collections', 'tenant_monitored_collections_sync', 'products'] as $table) {
             $this->addSql(\sprintf('DROP POLICY IF EXISTS tenant_isolation ON %s', $table));
             $this->addSql(\sprintf('ALTER TABLE %s NO FORCE ROW LEVEL SECURITY', $table));
             $this->addSql(\sprintf('ALTER TABLE %s DISABLE ROW LEVEL SECURITY', $table));

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\CatalogSync\Application\Command\StartSync;
 
 use App\CatalogSync\Application\Command\FetchNextPage\FetchNextPageCommand;
-use App\CatalogSync\Domain\Repository\SyncJobRepositoryInterface;
+use App\CatalogSync\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -15,7 +15,7 @@ use Symfony\Component\Uid\UuidV7;
 final readonly class StartSyncHandler
 {
     public function __construct(
-        private SyncJobRepositoryInterface $syncJobRepository,
+        private MonitoredCollectionSyncRepositoryInterface $syncJobRepository,
         private MessageBusInterface $commandBus,
     ) {
     }

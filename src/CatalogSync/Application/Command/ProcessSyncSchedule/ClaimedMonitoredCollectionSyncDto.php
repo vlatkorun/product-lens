@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\CatalogSync\Application\Command\ProcessSyncSchedule;
 
-final readonly class ClaimedSyncJobsDto
+final readonly class ClaimedMonitoredCollectionSyncDto
 {
-    /** @param list<ClaimedSyncJobDto> $jobs */
     public function __construct(
-        public array $jobs,
+        public string $syncJobId,
+        public string $tenantId,
     ) {
     }
 }

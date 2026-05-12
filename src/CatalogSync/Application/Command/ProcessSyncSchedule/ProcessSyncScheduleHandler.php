@@ -14,7 +14,7 @@ use Symfony\Component\Uid\UuidV7;
 final readonly class ProcessSyncScheduleHandler
 {
     public function __construct(
-        private SyncJobClaimer $claimer,
+        private MonitoredCollectionSyncClaimer $claimer,
         private MessageBusInterface $commandBus,
     ) {
     }

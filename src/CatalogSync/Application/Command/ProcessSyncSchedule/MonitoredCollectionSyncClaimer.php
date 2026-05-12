@@ -7,13 +7,13 @@ namespace App\CatalogSync\Application\Command\ProcessSyncSchedule;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Uid\UuidV7;
 
-final readonly class SyncJobClaimer
+final readonly class MonitoredCollectionSyncClaimer
 {
     public function __construct(private Connection $connection)
     {
     }
 
-    public function claim(\DateTimeImmutable $now): ClaimedSyncJobsDto
+    public function claim(\DateTimeImmutable $now): ClaimedMonitoredCollectionSyncsDto
     {
         $this->connection->beginTransaction();
 
@@ -25,7 +25,7 @@ final readonly class SyncJobClaimer
                     WHERE mc.enabled = true
                       AND NOT EXISTS (
                           SELECT 1
-                          FROM sync_jobs sj
+                          FROM tenant_monitored_collections_sync sj
                           WHERE sj.monitored_collection_id = mc.resource_id
                             AND sj.status IN ('pending', 'running')
                       )
@@ -39,19 +39,21 @@ final readonly class SyncJobClaimer
                 $syncJobId = new UuidV7()->toRfc4122();
 
                 $this->connection->executeStatement(
-                    'INSERT INTO sync_jobs
-                        (resource_id, tenant_id, monitored_collection_id, collection_gid, status, total_processed, started_at)
-                     VALUES (?, ?, ?, ?, \'pending\', 0, ?)',
+                    'INSERT INTO tenant_monitored_collections_sync
+                        (resource_id, tenant_id, monitored_collection_id, collection_gid, status, total_processed, started_at, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, \'pending\', 0, ?, ?, ?)',
                     [
                         $syncJobId,
                         $row['tenant_id'],
                         $row['resource_id'],
                         $row['collection_gid'],
                         $now->format('Y-m-d H:i:s'),
+                        $now->format('Y-m-d H:i:s'),
+                        $now->format('Y-m-d H:i:s'),
                     ],
                 );
 
-                $jobs[] = new ClaimedSyncJobDto($syncJobId, $row['tenant_id']);
+                $jobs[] = new ClaimedMonitoredCollectionSyncDto($syncJobId, $row['tenant_id']);
             }
 
             $this->connection->commit();
@@ -60,6 +62,6 @@ final readonly class SyncJobClaimer
             throw $e;
         }
 
-        return new ClaimedSyncJobsDto($jobs);
+        return new ClaimedMonitoredCollectionSyncsDto($jobs);
     }
 }

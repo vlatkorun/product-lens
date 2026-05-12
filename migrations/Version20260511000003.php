@@ -12,7 +12,7 @@ final class Version20260511000003 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Create CatalogSync tables: tenant_monitored_collections, sync_jobs, products';
+        return 'Create CatalogSync tables: tenant_monitored_collections, tenant_monitored_collections_sync, products';
     }
 
     public function up(Schema $schema): void
@@ -47,7 +47,7 @@ final class Version20260511000003 extends AbstractMigration
         $this->addSql('CREATE INDEX tenant_monitored_collections_enabled_idx ON tenant_monitored_collections (tenant_id) WHERE enabled = true');
 
         $this->addSql(<<<'SQL'
-                CREATE TABLE sync_jobs (
+                CREATE TABLE tenant_monitored_collections_sync (
                     id                      BIGINT       GENERATED ALWAYS AS IDENTITY NOT NULL,
                     resource_id             UUID         NOT NULL,
                     tenant_id               UUID         NOT NULL,
@@ -60,18 +60,20 @@ final class Version20260511000003 extends AbstractMigration
                     completed_at            TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
                     failed_at               TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
                     failure_reason          TEXT         DEFAULT NULL,
+                    created_at              TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+                    updated_at              TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
                     PRIMARY KEY (id),
-                    CONSTRAINT fk_sync_jobs_tenant               FOREIGN KEY (tenant_id)               REFERENCES tenants                        (resource_id) ON DELETE CASCADE,
-                    CONSTRAINT fk_sync_jobs_monitored_collection FOREIGN KEY (monitored_collection_id) REFERENCES tenant_monitored_collections (resource_id) ON DELETE CASCADE
+                    CONSTRAINT fk_tenant_monitored_collections_sync_tenant               FOREIGN KEY (tenant_id)               REFERENCES tenants                           (resource_id) ON DELETE CASCADE,
+                    CONSTRAINT fk_tenant_monitored_collections_sync_monitored_collection FOREIGN KEY (monitored_collection_id) REFERENCES tenant_monitored_collections (resource_id) ON DELETE CASCADE
                 )
             SQL);
 
-        $this->addSql('ALTER TABLE sync_jobs ADD CONSTRAINT sync_jobs_resource_id_uq UNIQUE (resource_id)');
-        $this->addSql('CREATE INDEX sync_jobs_tenant_id_idx ON sync_jobs (tenant_id)');
-        $this->addSql('CREATE INDEX sync_jobs_monitored_collection_id_idx ON sync_jobs (monitored_collection_id)');
-        $this->addSql('CREATE INDEX sync_jobs_status_idx ON sync_jobs (status)');
-        $this->addSql('CREATE INDEX sync_jobs_started_at_idx ON sync_jobs (started_at)');
-        $this->addSql("CREATE INDEX sync_jobs_running_idx ON sync_jobs (monitored_collection_id) WHERE status IN ('pending', 'running')");
+        $this->addSql('ALTER TABLE tenant_monitored_collections_sync ADD CONSTRAINT tenant_monitored_collections_sync_resource_id_uq UNIQUE (resource_id)');
+        $this->addSql('CREATE INDEX tenant_monitored_collections_sync_tenant_id_idx ON tenant_monitored_collections_sync (tenant_id)');
+        $this->addSql('CREATE INDEX tenant_monitored_collections_sync_monitored_collection_id_idx ON tenant_monitored_collections_sync (monitored_collection_id)');
+        $this->addSql('CREATE INDEX tenant_monitored_collections_sync_status_idx ON tenant_monitored_collections_sync (status)');
+        $this->addSql('CREATE INDEX tenant_monitored_collections_sync_started_at_idx ON tenant_monitored_collections_sync (started_at)');
+        $this->addSql("CREATE INDEX tenant_monitored_collections_sync_running_idx ON tenant_monitored_collections_sync (monitored_collection_id) WHERE status IN ('pending', 'running')");
 
         $this->addSql(<<<'SQL'
                 CREATE TABLE products (
@@ -104,7 +106,7 @@ final class Version20260511000003 extends AbstractMigration
     public function down(Schema $schema): void
     {
         $this->addSql('DROP TABLE products');
-        $this->addSql('DROP TABLE sync_jobs');
+        $this->addSql('DROP TABLE tenant_monitored_collections_sync');
         $this->addSql('DROP TABLE tenant_monitored_collections');
         $this->addSql('DROP TYPE sync_status');
         $this->addSql('DROP TYPE product_status');

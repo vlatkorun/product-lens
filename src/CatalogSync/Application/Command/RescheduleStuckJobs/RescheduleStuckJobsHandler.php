@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\CatalogSync\Application\Command\RescheduleStuckJobs;
 
 use App\CatalogSync\Application\Command\StartSync\StartSyncCommand;
-use App\CatalogSync\Domain\Repository\SyncJobRepositoryInterface;
+use App\CatalogSync\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -16,7 +16,7 @@ final readonly class RescheduleStuckJobsHandler
     private const STUCK_THRESHOLD_MINUTES = 5;
 
     public function __construct(
-        private SyncJobRepositoryInterface $syncJobRepository,
+        private MonitoredCollectionSyncRepositoryInterface $syncJobRepository,
         private MessageBusInterface $commandBus,
     ) {
     }

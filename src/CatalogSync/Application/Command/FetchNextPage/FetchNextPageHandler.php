@@ -6,7 +6,7 @@ namespace App\CatalogSync\Application\Command\FetchNextPage;
 
 use App\CatalogSync\Domain\Repository\MonitoredCollectionRepositoryInterface;
 use App\CatalogSync\Domain\Repository\ProductRepositoryInterface;
-use App\CatalogSync\Domain\Repository\SyncJobRepositoryInterface;
+use App\CatalogSync\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
 use App\CatalogSync\Domain\Service\ProductFetcherInterface;
 use App\CatalogSync\Domain\ValueObject\ProductFilter;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
@@ -20,7 +20,7 @@ final readonly class FetchNextPageHandler
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private SyncJobRepositoryInterface $syncJobRepository,
+        private MonitoredCollectionSyncRepositoryInterface $syncJobRepository,
         private MonitoredCollectionRepositoryInterface $collectionRepository,
         private ProductFetcherInterface $productFetcher,
         private ProductRepositoryInterface $productRepository,

@@ -6,12 +6,12 @@ namespace App\CatalogSync\Domain\Event;
 
 use App\Shared\Domain\Event\AsyncDomainEvent;
 
-final readonly class SyncJobStarted implements AsyncDomainEvent
+final readonly class MonitoredCollectionSyncProcessed implements AsyncDomainEvent
 {
     public function __construct(
         public string $syncJobId,
-        public string $tenantId,
-        public string $collectionGid,
+        public int $pageCount,
+        public int $totalProcessed,
         public \DateTimeImmutable $occurredAt,
     ) {
     }
