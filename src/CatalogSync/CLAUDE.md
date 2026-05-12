@@ -11,7 +11,7 @@ Fetches Shopify products into the platform so ImageAudit can act on them. Tenant
 - Imports from `Shared\Domain\` are allowed.
 - Imports from `Tenancy\Domain\Repository\TenantRepositoryInterface` are allowed (credential lookup only).
 - Never import from `Identity`, `ImageAudit`, or any other bounded context's domain classes.
-- Cross-context communication happens only via domain events (`SyncJobCompleted` → ImageAudit).
+- Cross-context communication happens only via domain events (`MonitoredCollectionSyncCompleted` → ImageAudit).
 
 ---
 
@@ -22,7 +22,7 @@ Fetches Shopify products into the platform so ImageAudit can act on them. Tenant
 | Class | Purpose |
 |---|---|
 | `ShopifyGid` | Wraps `gid://shopify/{Type}/{Id}`; factory methods `::product()`, `::collection()`, `::fromString()` |
-| `SyncCursor` | `endCursor: ?string` + `hasNextPage: bool`; stored as JSONB on `sync_jobs` |
+| `SyncCursor` | `endCursor: ?string` + `hasNextPage: bool`; stored as JSONB on `tenant_monitored_collections_sync` |
 | `SyncStatus` | Enum: `Pending`, `Running`, `Completed`, `Failed` |
 | `ProductStatus` | Enum: `Active`, `Archived`, `Draft` |
 | `ProductFilter` | `collectionGid: ShopifyGid`, `status: ProductStatus = Active` |
@@ -30,7 +30,7 @@ Fetches Shopify products into the platform so ImageAudit can act on them. Tenant
 
 ### Aggregates (`Domain/Model/`)
 
-**`MonitoredCollection`** — table `collection_sync_configs`
+**`MonitoredCollection`** — table `tenant_monitored_collections`
 
 Configuration aggregate. Owns what to sync and which audit features to run on a collection's products. Unique per `(tenantId, collectionGid)`.
 
@@ -42,15 +42,15 @@ updateFeatureFlags(FeatureFlag[])
 rename(string)
 ```
 
-**`SyncJob`** — table `sync_jobs`
+**`MonitoredCollectionSync`** — table `tenant_monitored_collections_sync`
 
-One full sync execution for a monitored collection. Created in `Pending` state by the scheduler (not the handler) to close the race window.
+One full sync execution for a monitored collection. Created in `Pending` state by the scheduler (not the handler) to close the race window. Carries `createdAt` (set at scheduling time) and `updatedAt` (refreshed on every save).
 
 ```
 schedule(tenantId, monitoredCollectionId, collectionGid, now) → status=Pending, no events
-start()                                                       → Pending→Running, raises SyncJobStarted
-recordPage(endCursor, hasNextPage, count, featureFlags[])     → raises SyncJobProcessed; if !hasNextPage: Completed + SyncJobCompleted
-fail(reason, at)                                              → raises SyncJobFailed
+start()                                                       → Pending→Running, raises MonitoredCollectionSyncStarted
+recordPage(endCursor, hasNextPage, count, featureFlags[])     → raises MonitoredCollectionSyncProcessed; if !hasNextPage: Completed + MonitoredCollectionSyncCompleted
+fail(reason, at)                                              → raises MonitoredCollectionSyncFailed
 ```
 
 **`Product`** — table `products`
@@ -63,12 +63,12 @@ Read model snapshot of a Shopify product. Not an aggregate — no domain events.
 |---|---|---|
 | `CollectionMonitoringEnabled` | sync | `MonitoredCollection::enable()` / `create()` |
 | `CollectionMonitoringDisabled` | sync | `MonitoredCollection::disable()` |
-| `SyncJobStarted` | async | `SyncJob::start()` |
-| `SyncJobProcessed` | async | `SyncJob::recordPage()` on each page |
-| `SyncJobCompleted` | async | `SyncJob::recordPage()` on last page — carries `tenantId`, `collectionGid`, `featureFlags[]` |
-| `SyncJobFailed` | async | `SyncJob::fail()` |
+| `MonitoredCollectionSyncStarted` | async | `MonitoredCollectionSync::start()` |
+| `MonitoredCollectionSyncProcessed` | async | `MonitoredCollectionSync::recordPage()` on each page |
+| `MonitoredCollectionSyncCompleted` | async | `MonitoredCollectionSync::recordPage()` on last page — carries `tenantId`, `collectionGid`, `featureFlags[]` |
+| `MonitoredCollectionSyncFailed` | async | `MonitoredCollectionSync::fail()` |
 
-`SyncJobCompleted` gives ImageAudit everything it needs without querying CatalogSync tables.
+`MonitoredCollectionSyncCompleted` gives ImageAudit everything it needs without querying CatalogSync tables.
 
 ---
 
@@ -79,7 +79,7 @@ Read model snapshot of a Shopify product. Not an aggregate — no domain events.
 | Command | Handler responsibility |
 |---|---|
 | `ConfigureMonitoredCollectionCommand` | Upsert `MonitoredCollection` by `(tenantId, collectionGid)`; idempotent |
-| `ProcessSyncScheduleCommand` | Delegates the transactional DB work to `SyncJobClaimer::claim()` (Transaction Script); receives `ClaimedSyncJobsDto` back; dispatches `StartSyncCommand` + `TenantStamp` per `ClaimedSyncJobDto` |
+| `ProcessSyncScheduleCommand` | Delegates the transactional DB work to `MonitoredCollectionSyncClaimer::claim()` (Transaction Script); receives `ClaimedMonitoredCollectionSyncsDto` back; dispatches `StartSyncCommand` + `TenantStamp` per `ClaimedMonitoredCollectionSyncDto` |
 | `StartSyncCommand(syncJobId)` | Load existing Pending job; call `start()`; dispatch `FetchNextPageCommand` |
 | `FetchNextPageCommand(syncJobId)` | Fetch page from Shopify; upsert products; call `recordPage()`; re-dispatch if `hasNextPage` |
 | `HandleWebhookCommand` | Single-product create/update: fetch + upsert; delete: remove from table |
@@ -87,13 +87,13 @@ Read model snapshot of a Shopify product. Not an aggregate — no domain events.
 
 ### Transaction Scripts
 
-`SyncJobClaimer` lives in the `ProcessSyncSchedule` command namespace. It is not a Messenger handler — it is a focused service injected into `ProcessSyncScheduleHandler`. It owns the raw `Doctrine\DBAL\Connection` and is the only place allowed to run the `FOR UPDATE SKIP LOCKED` SELECT + INSERT transaction. Returns `ClaimedSyncJobsDto` containing `list<ClaimedSyncJobDto>`.
+`MonitoredCollectionSyncClaimer` lives in the `ProcessSyncSchedule` command namespace. It is not a Messenger handler — it is a focused service injected into `ProcessSyncScheduleHandler`. It owns the raw `Doctrine\DBAL\Connection` and is the only place allowed to run the `FOR UPDATE SKIP LOCKED` SELECT + INSERT transaction. Returns `ClaimedMonitoredCollectionSyncsDto` containing `list<ClaimedMonitoredCollectionSyncDto>`.
 
-Do not add further DB logic to `ProcessSyncScheduleHandler` directly — extend `SyncJobClaimer` or create a new Transaction Script alongside it.
+Do not add further DB logic to `ProcessSyncScheduleHandler` directly — extend `MonitoredCollectionSyncClaimer` or create a new Transaction Script alongside it.
 
 ### Query
 
-`GetSyncStatusQuery(syncJobId)` → returns `?SyncJob`
+`GetSyncStatusQuery(syncJobId)` → returns `?MonitoredCollectionSync`
 
 ---
 
@@ -104,32 +104,32 @@ Symfony Scheduler (every 5 min)
     → ProcessSyncScheduleCommand
 
 ProcessSyncScheduleHandler
-    → SyncJobClaimer::claim(now)          ← Transaction Script; owns DBAL directly
+    → MonitoredCollectionSyncClaimer::claim(now)  ← Transaction Script; owns DBAL directly
         BEGIN TRANSACTION
-        SELECT mc.id, mc.tenant_id, mc.collection_gid
-        FROM   collection_sync_configs mc
+        SELECT mc.resource_id, mc.tenant_id, mc.collection_gid
+        FROM   tenant_monitored_collections mc
         WHERE  mc.enabled = true
-        AND    NOT EXISTS (active sync_jobs for this collection)
+        AND    NOT EXISTS (active tenant_monitored_collections_sync for this collection)
         FOR UPDATE SKIP LOCKED
-        → INSERT sync_jobs (status='pending') for each row
+        → INSERT tenant_monitored_collections_sync (status='pending') for each row
         COMMIT
-        → return ClaimedSyncJobsDto(list<ClaimedSyncJobDto(syncJobId, tenantId)>)
-    → dispatch StartSyncCommand(syncJobId) + TenantStamp per ClaimedSyncJobDto
+        → return ClaimedMonitoredCollectionSyncsDto(list<ClaimedMonitoredCollectionSyncDto(syncJobId, tenantId)>)
+    → dispatch StartSyncCommand(syncJobId) + TenantStamp per ClaimedMonitoredCollectionSyncDto
 
 StartSyncHandler
     → findById(syncJobId)             ← job already in Pending state
-    → syncJob->start()                ← Pending → Running, raises SyncJobStarted
-    → save(syncJob)
+    → sync->start()                   ← Pending → Running, raises MonitoredCollectionSyncStarted
+    → save(sync)
     → dispatch FetchNextPageCommand(syncJobId) + TenantStamp
 
 FetchNextPageHandler  [repeated until hasNextPage = false]
     → ProductFetcherInterface::fetchPage(ProductFilter, tenantId, cursor)
     → ProductRepository::upsertAll(products)
     → MonitoredCollectionRepository::findById(monitoredCollectionId)
-    → syncJob->recordPage(endCursor, hasNextPage, count, featureFlags[])
-    → save(syncJob)
+    → sync->recordPage(endCursor, hasNextPage, count, featureFlags[])
+    → save(sync)
     → if hasNextPage: dispatch FetchNextPageCommand again
-    → if !hasNextPage: SyncJobCompleted dispatched → ImageAudit listens
+    → if !hasNextPage: MonitoredCollectionSyncCompleted dispatched → ImageAudit listens
 ```
 
 ### Webhook path
@@ -207,18 +207,18 @@ RecurringMessage::every('2 minutes', new RescheduleStuckJobsCommand())
 ### Persistence
 
 - `DoctrineMonitoredCollectionRepository` — standard ORM save + event publish
-- `DoctrineSyncJobRepository` — standard ORM save + event publish; `findStuckPending()` via DQL
+- `DoctrineMonitoredCollectionSyncRepository` — standard ORM save + event publish; `findStuckPending()` via DQL
 - `DoctrineProductRepository` — raw DBAL upsert (`INSERT ... ON CONFLICT DO UPDATE`)
 
 ---
 
 ## Database
 
-Tables: `collection_sync_configs`, `sync_jobs`, `products`
+Tables: `tenant_monitored_collections`, `tenant_monitored_collections_sync`, `products`
 
 Migration 003 — tables, enums (`sync_status`, `product_status`), indexes including partial indexes:
-- `collection_sync_configs_enabled_idx` — `(tenant_id) WHERE enabled = true`
-- `sync_jobs_running_idx` — `(monitored_collection_id) WHERE status IN ('pending', 'running')`
+- `tenant_monitored_collections_enabled_idx` — `(tenant_id) WHERE enabled = true`
+- `tenant_monitored_collections_sync_running_idx` — `(monitored_collection_id) WHERE status IN ('pending', 'running')`
 
 Migration 004 — RLS policies, `app_scheduler` role with `BYPASSRLS`
 
@@ -226,8 +226,8 @@ Migration 004 — RLS policies, `app_scheduler` role with `BYPASSRLS`
 
 ## Key invariants
 
-- `(tenantId, collectionGid)` is unique in `collection_sync_configs`.
+- `(tenantId, collectionGid)` is unique in `tenant_monitored_collections`.
 - No two schedulers can claim the same collection concurrently: `FOR UPDATE SKIP LOCKED` + in-transaction insert.
-- A `SyncJob` is created in `Pending` before `StartSyncCommand` is dispatched — the DB row is the source of truth, not the message queue.
+- A `MonitoredCollectionSync` is created in `Pending` before `StartSyncCommand` is dispatched — the DB row is the source of truth, not the message queue.
 - `Product` carries no domain events and does not extend `AggregateRoot`.
 - `FeatureFlag` lives in `Shared\Domain\ValueObject` — imported by both Tenancy and CatalogSync.

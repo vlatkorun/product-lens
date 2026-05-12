@@ -50,7 +50,7 @@ provider or inline construction suffices.
   Messenger handlers, and the full OAuth flow. These boot the Symfony kernel and
   require a real database connection.
 - **Each bounded context has its own tests.** Do not write cross-context assertions
-  inside a context's own test file — cross-context event flow (e.g. `SyncJobCompleted`
+  inside a context's own test file — cross-context event flow (e.g. `MonitoredCollectionSyncCompleted`
   triggering `RunAuditCommand`) belongs in `tests/Integration/`.
 - **Use data providers** for value object validation (e.g. shop domain format rules,
   `FeatureFlag` enum mapping, `UserRole` hierarchy) — there are many input
@@ -106,19 +106,19 @@ The only shared primitives live in `Shared/Domain/`.
 Identity       — user lifecycle, roles, tenant membership, authentication
 Tenancy        — tenant lifecycle, feature flags, Shopify OAuth
 CatalogSync    — product fetching, cursor tracking, webhook ingestion
-ImageAudit     — technical audit chain, AI audit, report generation
+Audit          — pipeline-and-specification audit engine, per-tenant feature-flag gated
 ```
 
 **Identity** owns all authentication and authorisation concerns. It references
 tenants by UUID only — no import of `Tenancy` domain classes.
 
-**Tenancy** is a read-dependency for `CatalogSync` and `ImageAudit`. It exposes
+**Tenancy** is a read-dependency for `CatalogSync` and `Audit`. It exposes
 `TenantId` (shared) and `FeatureFlagResolver` (domain service). No other context
 writes to Tenancy.
 
-**CatalogSync → ImageAudit** is the main flow. When a sync job completes (or a
-product webhook arrives), `SyncJobCompleted` is dispatched. ImageAudit listens and
-dispatches `RunAuditCommand`. The two contexts never import each other's namespaces.
+**CatalogSync → Audit** is the main flow. When a sync job completes (or a
+product webhook arrives), `MonitoredCollectionSyncCompleted` is dispatched. Audit listens and
+dispatches `RunAuditCommand` (event listener not yet built). The two contexts never import each other's namespaces. See @src/Audit/CLAUDE.md.
 
 ---
 
@@ -190,48 +190,43 @@ src/
 │
 ├── CatalogSync/
 │   ├── Domain/
-│   │   ├── Model/SyncJob.php                     ← aggregate root
+│   │   ├── Model/MonitoredCollection.php         ← aggregate root (table: tenant_monitored_collections)
+│   │   ├── Model/MonitoredCollectionSync.php     ← aggregate root (table: tenant_monitored_collections_sync)
 │   │   ├── Model/Product.php                     ← entity (read model)
 │   │   ├── ValueObject/SyncCursor.php            ← wraps endCursor + hasNextPage
 │   │   ├── ValueObject/SyncStatus.php            ← enum: PENDING|RUNNING|COMPLETED|FAILED
-│   │   ├── Repository/{SyncJobRepositoryInterface,ProductRepositoryInterface}.php
+│   │   ├── Repository/{MonitoredCollectionSyncRepositoryInterface,ProductRepositoryInterface}.php
 │   │   ├── Service/ProductFetcherInterface.php   ← domain service contract
-│   │   └── Event/{SyncJobCompleted,SyncJobFailed}.php
+│   │   └── Event/{MonitoredCollectionSyncCompleted,MonitoredCollectionSyncFailed,...}.php
 │   ├── Application/
+│   │   ├── Command/ProcessSyncSchedule/{Command,Handler,MonitoredCollectionSyncClaimer}.php
 │   │   ├── Command/StartSync/{Command,Handler}.php
+│   │   ├── Command/FetchNextPage/{Command,Handler}.php
 │   │   ├── Command/HandleWebhook/{Command,Handler}.php
+│   │   ├── Command/RescheduleStuckJobs/{Command,Handler}.php
 │   │   └── Query/GetSyncStatus/{Query,Handler}.php
 │   └── Infrastructure/
 │       ├── Shopify/ShopifyClient.php             ← GraphQL transport; holds HttpClient + SHOPIFY_API_VERSION
 │       ├── Shopify/ShopifyProductFetcher.php     ← implements ProductFetcherInterface; maps DTOs → domain
-│       ├── Shopify/GraphQL/ProductsByCollectionQuery.php
-│       ├── Shopify/GraphQL/GetProductQuery.php
 │       ├── Shopify/GraphQL/Dto/{ImageDto,ProductNodeDto,PageInfoDto,...}.php  ← typed response DTOs
 │       ├── Shopify/Webhook/{ShopifyWebhookController,ShopifyWebhookValidator}.php
-│       ├── Persistence/{DoctrineSyncJobRepository,DoctrineProductRepository}.php
+│       ├── Persistence/{DoctrineMonitoredCollectionSyncRepository,DoctrineProductRepository}.php
 │       └── Scheduler/SyncSchedule.php            ← Symfony Scheduler
 │
-└── ImageAudit/
+└── Audit/
     ├── Domain/
-    │   ├── Model/AuditReport.php                 ← aggregate root
-    │   ├── Model/AuditFinding.php                ← entity (append-only)
-    │   ├── ValueObject/FindingType.php           ← enum: MISSING|WRONG_FORMAT|WRONG_SIZE|AI_FLAGGED
-    │   ├── ValueObject/AuditStatus.php           ← enum: PENDING|RUNNING|PASSED|FAILED
-    │   ├── Repository/AuditReportRepositoryInterface.php
-    │   ├── Service/ImageAuditorInterface.php
-    │   ├── Service/AiImageAuditorInterface.php
-    │   └── Event/AuditCompleted.php
+    │   ├── Specification/{SpecificationInterface,SpecificationResult,Issue}.php
+    │   ├── Specification/ValueObject/Severity.php   ← enum: CRITICAL|WARNING|INFO
+    │   ├── Pipeline/{AuditPipelineInterface,AuditPipelineResult}.php
+    │   ├── Service/{AuditOrchestratorInterface,AuditPipelineResolverInterface}.php
+    │   └── ValueObject/{AuditableProduct,ProductImage}.php
     ├── Application/
-    │   ├── Command/RunAudit/{Command,Handler}.php
-    │   ├── Command/RunAiAudit/{Command,Handler}.php   ← feature-flag guarded
-    │   └── Query/GetMissingImages/{Query,Handler}.php
+    │   └── Command/RunAudit/{Command,Handler}.php
     └── Infrastructure/
-        ├── Auditor/CompositeAuditor.php          ← tagged_iterator chain
-        ├── Auditor/MissingImageAuditor.php
-        ├── Auditor/FormatAuditor.php
-        ├── Auditor/SizeAuditor.php
-        ├── AiAuditor/ClaudeImageAuditor.php      ← implements AiImageAuditorInterface
-        └── Persistence/DoctrineAuditReportRepository.php
+        ├── Pipeline/{ImageAuditPipeline,AIImageAuditPipeline}.php   ← tagged: app.audit_pipeline
+        ├── Specification/Image/{ImageExists,ImageUrlReachable,ImageDimensions}Specification.php
+        ├── AuditPipelineResolver.php             ← filters by FeatureFlag via AutowireIterator
+        └── AuditOrchestrator.php                 ← stateless; takes pipelines as parameter
 ```
 
 ---
@@ -241,12 +236,12 @@ src/
 ### Aggregates and value objects
 
 - **Private constructors** on all aggregates. Creation only through named static
-  factory methods (`Tenant::create()`, `SyncJob::start()`).
+  factory methods (`Tenant::create()`, `MonitoredCollectionSync::schedule()`).
 - **`AggregateRoot::raise()`** collects domain events internally.
   `pullDomainEvents()` is called by the repository after `save()` so events are
   dispatched transactionally.
 - **Value objects are immutable.** Mutation returns a new instance. `SyncCursor`
-  is replaced wholesale on each page (`SyncJob::recordPage()`), never mutated.
+  is replaced wholesale on each page (`MonitoredCollectionSync::recordPage()`), never mutated.
 - **`FeatureFlag`** is a backed enum (`string`). Current cases: `ImageAudit`,
   `AiImageAudit`. Stored as a JSONB array on the `Tenant` record. Serialized via
   Doctrine lifecycle hooks (`PostLoad` / `PrePersist` / `PreUpdate`) — the mapped
@@ -302,10 +297,10 @@ can be rotated independently of Symfony's framework secret (CSRF, cookies, sessi
 
 ### CatalogSync: cursor tracking
 
-`SyncJob` owns the cursor state. `SyncJob::recordPage(endCursor, hasNextPage)`
+`MonitoredCollectionSync` owns the cursor state. `MonitoredCollectionSync::recordPage(endCursor, hasNextPage)`
 replaces `SyncCursor` each page and transitions to `COMPLETED` + raises
-`SyncJobCompleted` when `hasNextPage` is false. The job can be resumed at any
-point by reading `$syncJob->cursor()`.
+`MonitoredCollectionSyncCompleted` when `hasNextPage` is false. The job can be resumed at any
+point by reading `$sync->cursor()`.
 
 `ProductFetcherInterface` is a domain service contract. `ShopifyProductFetcher`
 implements it in Infrastructure via `ShopifyClient` (which wraps `HttpClientInterface`
@@ -314,28 +309,11 @@ before being mapped to domain objects. The domain never touches HTTP or raw arra
 
 Periodic sync is driven by `SyncSchedule` (Symfony Scheduler component).
 Webhook-triggered syncs go through `HandleWebhookCommand`, which creates or
-resumes a `SyncJob` for the affected collection.
+resumes a `MonitoredCollectionSync` for the affected collection.
 
-### ImageAudit: composite auditor chain
+### Audit: pipeline-and-specification engine
 
-`ImageAuditorInterface` is the domain contract. All technical auditors
-(`MissingImageAuditor`, `FormatAuditor`, `SizeAuditor`) are tagged with
-`app.image_auditor` and injected into `CompositeAuditor` via `!tagged_iterator`.
-`CompositeAuditor` itself implements the interface — handlers only ever depend on
-`ImageAuditorInterface`.
-
-```yaml
-# config/services.yaml
-App\ImageAudit\Infrastructure\Auditor\CompositeAuditor:
-    arguments:
-        $auditors: !tagged_iterator { tag: app.image_auditor, default_priority_method: getPriority }
-```
-
-The AI auditor (`ClaudeImageAuditor`) is **not** in the composite chain. It is
-invoked by a separate `RunAiAuditCommand`/`RunAiAuditHandler`, dispatched by
-`RunAuditHandler` after the technical audit completes. `RunAiAuditHandler` checks
-the `FeatureFlag::AI_IMAGE_AUDIT` flag before proceeding — if disabled for the
-tenant, it returns early without error.
+Each audit run passes an `AuditableProduct` through a resolved set of `AuditPipelineInterface` implementations. Pipelines declare a `requiredFeatureFlag()` — `AuditPipelineResolver` filters them against the tenant's active flags before the orchestrator runs them. Each pipeline holds a prioritised set of `SpecificationInterface` implementations injected via `#[AutowireIterator]`. See @src/Audit/CLAUDE.md for the full model and extension points.
 
 ### Shopify OAuth flow
 
@@ -442,7 +420,7 @@ config — flags set here are enabled for all tenants without touching the datab
 
 ### DTOs
 
-Data Transfer Objects used in the application layer (command namespaces, query results) must have class names ending with the `Dto` suffix — e.g. `ClaimedSyncJobsDto`, not `ClaimedSyncJobs`. Infrastructure DTOs (Shopify GraphQL response objects) follow the same rule. This applies across all bounded contexts.
+Data Transfer Objects used in the application layer (command namespaces, query results) must have class names ending with the `Dto` suffix — e.g. `ClaimedMonitoredCollectionSyncsDto`, not `ClaimedMonitoredCollectionSyncs`. Infrastructure DTOs (Shopify GraphQL response objects) follow the same rule. This applies across all bounded contexts.
 
 ### CQRS via Symfony Messenger
 
@@ -466,7 +444,7 @@ them based on the event's type:
 final readonly class TenantCreated implements DomainEvent { ... }
 
 // async — pushed to RabbitMQ, consumed by a Messenger worker
-final readonly class SyncJobCompleted implements AsyncDomainEvent { ... }
+final readonly class MonitoredCollectionSyncCompleted implements AsyncDomainEvent { ... }
 ```
 
 ```yaml
@@ -488,7 +466,7 @@ every repository and handler.
   Disabling an absent flag is a no-op (idempotent).
 - `AuditFinding` is append-only. Once recorded on an `AuditReport`, findings are
   never mutated or deleted — only new findings can be appended.
-- A `SyncJob` in `RUNNING` status cannot be started again. Starting a new sync for
+- A `MonitoredCollectionSync` in `RUNNING` status cannot be started again. Starting a new sync for
   a collection while one is running should resume the existing job via its cursor.
 - The AI audit step only runs if `FeatureFlag::AI_IMAGE_AUDIT` is enabled for the
   tenant. This is enforced at the application layer, not the domain layer.
@@ -507,26 +485,27 @@ every repository and handler.
 [Shopify webhook]  ──►  HandleWebhookCommand
 [Symfony Scheduler] ──►  ProcessSyncScheduleCommand
                               │
-                        SyncJobClaimer::claim()
+                        MonitoredCollectionSyncClaimer::claim()
                               │ (per eligible collection, in one transaction)
                         StartSyncCommand dispatched
                               │
-                        SyncJob::recordPage()
+                        MonitoredCollectionSync::recordPage()
                               │ (on last page)
-                        SyncJobCompleted raised
+                        MonitoredCollectionSyncCompleted raised
                               │
                         [Messenger event bus]
                               │
-                        RunAuditCommand dispatched
+                        RunAuditCommand dispatched (listener not yet built)
                               │
-                        CompositeAuditor chain runs
-                        (Missing → Format → Size)
+                        AuditPipelineResolver::resolve(featureFlags)
+                              │ (filters to enabled pipelines)
+                        AuditOrchestrator::orchestrate(product, pipelines)
+                              │ (per enabled pipeline)
+                        Pipeline runs tagged specifications in priority order
                               │
-                        RunAiAuditCommand dispatched
-                              │ (if FeatureFlag enabled)
-                        ClaudeImageAuditor runs
-                              │
-                        AuditCompleted raised
+                        list<AuditPipelineResult> returned
+                              │ (AuditReport persistence not yet built)
+                        AuditCompleted raised (not yet built)
 ```
 
 ---
@@ -549,9 +528,9 @@ every repository and handler.
 
 **CatalogSync**
 - Unit and integration tests for all commands and handlers
-- `SyncJobClaimer` integration test (requires real DB + `FOR UPDATE SKIP LOCKED` verification)
+- `MonitoredCollectionSyncClaimer` integration test (requires real DB + `FOR UPDATE SKIP LOCKED` verification)
 
-**ImageAudit** — all of it
+**Audit** — `AuditReport` aggregate + persistence; event listener on `MonitoredCollectionSyncCompleted`; AI image specifications; `AuditCompleted` event; query layer. See @src/Audit/CLAUDE.md.
 
 **General**
 - Shopify App UI (React / App Bridge) for toggling feature flags per tenant

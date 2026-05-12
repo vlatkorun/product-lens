@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\CatalogSync\Application\Command\FetchNextPage;
 
 use App\CatalogSync\Domain\Repository\MonitoredCollectionRepositoryInterface;
-use App\CatalogSync\Domain\Repository\ProductRepositoryInterface;
 use App\CatalogSync\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
+use App\CatalogSync\Domain\Repository\ProductRepositoryInterface;
 use App\CatalogSync\Domain\Service\ProductFetcherInterface;
 use App\CatalogSync\Domain\ValueObject\ProductFilter;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
