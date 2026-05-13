@@ -6,7 +6,7 @@ namespace App\Audit\Domain\Service;
 
 use App\Audit\Domain\Pipeline\AuditPipelineInterface;
 use App\Audit\Domain\Pipeline\AuditPipelineResult;
-use App\Audit\Domain\ValueObject\AuditableProduct;
+use App\Audit\Domain\ValueObject\AuditableObject;
 
 interface AuditOrchestratorInterface
 {
@@ -15,5 +15,5 @@ interface AuditOrchestratorInterface
      *
      * @return list<AuditPipelineResult>
      */
-    public function orchestrate(AuditableProduct $product, array $pipelines): array;
+    public function orchestrate(AuditableObject $subject, array $pipelines): array;
 }

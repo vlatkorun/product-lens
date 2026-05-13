@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Audit\Infrastructure\Pipeline;
+namespace App\Audit\Infrastructure\Pipeline\Product;
 
 use App\Audit\Domain\Pipeline\AuditPipelineInterface;
 use App\Audit\Domain\Pipeline\AuditPipelineResult;
-use App\Audit\Domain\Specification\SpecificationInterface;
+use App\Audit\Domain\Specification\ProductSpecificationInterface;
+use App\Audit\Domain\ValueObject\AuditableObject;
 use App\Audit\Domain\ValueObject\AuditableProduct;
 use App\Shared\Domain\ValueObject\FeatureFlag;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
@@ -15,7 +16,7 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 #[AutoconfigureTag('app.audit_pipeline')]
 final class ImageAuditPipeline implements AuditPipelineInterface
 {
-    /** @param iterable<SpecificationInterface> $specifications */
+    /** @param iterable<ProductSpecificationInterface> $specifications */
     public function __construct(
         #[AutowireIterator('app.audit_specification.image')]
         private readonly iterable $specifications,
@@ -32,11 +33,15 @@ final class ImageAuditPipeline implements AuditPipelineInterface
         return FeatureFlag::ImageAudit;
     }
 
-    public function run(AuditableProduct $product): AuditPipelineResult
+    public function run(AuditableObject $subject): AuditPipelineResult
     {
+        if (!$subject instanceof AuditableProduct) {
+            throw new \InvalidArgumentException(\sprintf('%s requires %s, got %s.', self::class, AuditableProduct::class, $subject::class));
+        }
+
         $results = [];
         foreach ($this->specifications as $specification) {
-            $results[] = $specification->isSatisfiedBy($product);
+            $results[] = $specification->isSatisfiedBy($subject);
         }
 
         return new AuditPipelineResult($this->name(), $results);

@@ -25,6 +25,15 @@ final readonly class ProductsByCollectionQuery
                       node { url altText width height }
                     }
                   }
+                  variants(first: 50) {
+                    edges {
+                      node {
+                        id
+                        title
+                        image { url altText width height }
+                      }
+                    }
+                  }
                 }
               }
             }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Audit\Infrastructure\Specification\Image;
 
 use App\Audit\Domain\Specification\Issue;
-use App\Audit\Domain\Specification\SpecificationInterface;
+use App\Audit\Domain\Specification\ProductSpecificationInterface;
 use App\Audit\Domain\Specification\SpecificationResult;
 use App\Audit\Domain\Specification\ValueObject\Severity;
 use App\Audit\Domain\ValueObject\AuditableProduct;
@@ -13,7 +13,7 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[AutoconfigureTag('app.audit_specification.image', attributes: ['priority' => 50])]
-final class ImageUrlReachableSpecification implements SpecificationInterface
+final class ImageUrlReachableSpecification implements ProductSpecificationInterface
 {
     public function __construct(private readonly HttpClientInterface $httpClient)
     {

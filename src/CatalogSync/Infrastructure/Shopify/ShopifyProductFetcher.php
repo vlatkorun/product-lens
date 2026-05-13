@@ -15,6 +15,7 @@ use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\GetProductResponseDto;
 use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\ImageDto;
 use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\ProductNodeDto;
 use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\ProductsByCollectionResponseDto;
+use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\VariantDto;
 use App\CatalogSync\Infrastructure\Shopify\GraphQL\GetProductQuery;
 use App\CatalogSync\Infrastructure\Shopify\GraphQL\ProductsByCollectionQuery;
 use App\Tenancy\Domain\Repository\TenantRepositoryInterface;
@@ -104,6 +105,7 @@ final readonly class ShopifyProductFetcher implements ProductFetcherInterface
             $node->productType,
             ProductStatus::from(\strtolower($node->status)),
             \array_map(static fn (ImageDto $image): array => $image->toArray(), $node->images),
+            \array_map(static fn (VariantDto $variant): array => $variant->toArray(), $node->variants),
             $node->featuredImageUrl,
             $syncedAt,
         );

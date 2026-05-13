@@ -6,25 +6,16 @@ namespace App\Audit\Domain\ValueObject;
 
 use Symfony\Component\Uid\UuidV7;
 
-final readonly class AuditableProduct
+final readonly class AuditableProduct extends AuditableObject
 {
     /** @param list<ProductImage> $images */
     public function __construct(
-        private UuidV7 $productId,
-        private UuidV7 $tenantId,
+        UuidV7 $productId,
+        UuidV7 $tenantId,
         private string $title,
         private array $images,
     ) {
-    }
-
-    public function productId(): UuidV7
-    {
-        return $this->productId;
-    }
-
-    public function tenantId(): UuidV7
-    {
-        return $this->tenantId;
+        parent::__construct($productId, $tenantId);
     }
 
     public function title(): string

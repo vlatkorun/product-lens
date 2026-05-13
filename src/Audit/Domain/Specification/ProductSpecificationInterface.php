@@ -6,7 +6,7 @@ namespace App\Audit\Domain\Specification;
 
 use App\Audit\Domain\ValueObject\AuditableProduct;
 
-interface SpecificationInterface
+interface ProductSpecificationInterface
 {
     public function isSatisfiedBy(AuditableProduct $product): SpecificationResult;
 }

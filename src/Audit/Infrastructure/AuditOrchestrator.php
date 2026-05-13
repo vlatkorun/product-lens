@@ -7,7 +7,7 @@ namespace App\Audit\Infrastructure;
 use App\Audit\Domain\Pipeline\AuditPipelineInterface;
 use App\Audit\Domain\Pipeline\AuditPipelineResult;
 use App\Audit\Domain\Service\AuditOrchestratorInterface;
-use App\Audit\Domain\ValueObject\AuditableProduct;
+use App\Audit\Domain\ValueObject\AuditableObject;
 
 final class AuditOrchestrator implements AuditOrchestratorInterface
 {
@@ -16,11 +16,11 @@ final class AuditOrchestrator implements AuditOrchestratorInterface
      *
      * @return list<AuditPipelineResult>
      */
-    public function orchestrate(AuditableProduct $product, array $pipelines): array
+    public function orchestrate(AuditableObject $subject, array $pipelines): array
     {
         $results = [];
         foreach ($pipelines as $pipeline) {
-            $results[] = $pipeline->run($product);
+            $results[] = $pipeline->run($subject);
         }
 
         return $results;

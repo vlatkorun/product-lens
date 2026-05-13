@@ -6,7 +6,10 @@ namespace App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto;
 
 final readonly class ProductNodeDto
 {
-    /** @param list<ImageDto> $images */
+    /**
+     * @param list<ImageDto> $images
+     * @param list<VariantDto> $variants
+     */
     public function __construct(
         public string $id,
         public string $title,
@@ -16,6 +19,7 @@ final readonly class ProductNodeDto
         public string $status,
         public ?string $featuredImageUrl,
         public array $images,
+        public array $variants,
     ) {
     }
 
@@ -27,6 +31,11 @@ final readonly class ProductNodeDto
             $node['images']['edges'],
         ));
 
+        $variants = \array_values(\array_map(
+            static fn (array $edge): VariantDto => VariantDto::fromNode($edge['node']),
+            $node['variants']['edges'],
+        ));
+
         return new self(
             id: $node['id'],
             title: $node['title'],
@@ -36,6 +45,7 @@ final readonly class ProductNodeDto
             status: $node['status'],
             featuredImageUrl: $node['featuredImage']['url'] ?? null,
             images: $images,
+            variants: $variants,
         );
     }
 }

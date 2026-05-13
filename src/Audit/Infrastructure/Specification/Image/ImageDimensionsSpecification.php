@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Audit\Infrastructure\Specification\Image;
 
 use App\Audit\Domain\Specification\Issue;
-use App\Audit\Domain\Specification\SpecificationInterface;
+use App\Audit\Domain\Specification\ProductSpecificationInterface;
 use App\Audit\Domain\Specification\SpecificationResult;
 use App\Audit\Domain\Specification\ValueObject\Severity;
 use App\Audit\Domain\ValueObject\AuditableProduct;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 #[AutoconfigureTag('app.audit_specification.image', attributes: ['priority' => 25])]
-final class ImageDimensionsSpecification implements SpecificationInterface
+final class ImageDimensionsSpecification implements ProductSpecificationInterface
 {
     public function __construct(
         private readonly int $minWidth = 800,

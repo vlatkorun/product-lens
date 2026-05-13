@@ -55,6 +55,10 @@ class Product implements TenantScopedInterface
     #[ORM\Column(type: 'jsonb', options: ['default' => '[]'])]
     private array $images;
 
+    /** @var list<array{id: string, title: string, image: ?array{url: string, altText: ?string, width: ?int, height: ?int}}> */
+    #[ORM\Column(type: 'jsonb', options: ['default' => '[]'])]
+    private array $variants;
+
     #[ORM\Column(name: 'featured_image_url', type: 'text', nullable: true)]
     private ?string $featuredImageUrl;
 
@@ -67,6 +71,7 @@ class Product implements TenantScopedInterface
 
     /**
      * @param list<array{url: string, altText: ?string, width: ?int, height: ?int}> $images
+     * @param list<array{id: string, title: string, image: ?array{url: string, altText: ?string, width: ?int, height: ?int}}> $variants
      */
     public static function create(
         UuidV7 $tenantId,
@@ -78,6 +83,7 @@ class Product implements TenantScopedInterface
         string $productType,
         ProductStatus $status,
         array $images,
+        array $variants,
         ?string $featuredImageUrl,
         \DateTimeImmutable $syncedAt,
     ): self {
@@ -92,6 +98,7 @@ class Product implements TenantScopedInterface
         $product->productType = $productType;
         $product->status = $status;
         $product->images = $images;
+        $product->variants = $variants;
         $product->featuredImageUrl = $featuredImageUrl;
         $product->syncedAt = $syncedAt;
 
@@ -147,6 +154,12 @@ class Product implements TenantScopedInterface
     public function images(): array
     {
         return $this->images;
+    }
+
+    /** @return list<array{id: string, title: string, image: ?array{url: string, altText: ?string, width: ?int, height: ?int}}> */
+    public function variants(): array
+    {
+        return $this->variants;
     }
 
     public function featuredImageUrl(): ?string

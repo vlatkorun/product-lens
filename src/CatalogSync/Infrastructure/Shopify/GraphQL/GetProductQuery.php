@@ -21,6 +21,15 @@ final readonly class GetProductQuery
                 node { url altText width height }
               }
             }
+            variants(first: 50) {
+              edges {
+                node {
+                  id
+                  title
+                  image { url altText width height }
+                }
+              }
+            }
           }
         }
         GRAPHQL;
