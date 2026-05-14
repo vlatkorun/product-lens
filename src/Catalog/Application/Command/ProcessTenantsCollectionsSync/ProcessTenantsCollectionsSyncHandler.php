@@ -6,6 +6,8 @@ namespace App\Catalog\Application\Command\ProcessTenantsCollectionsSync;
 
 use App\Catalog\Application\Command\StartSync\StartSyncCommand;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\UuidV7;
@@ -17,6 +19,8 @@ final readonly class ProcessTenantsCollectionsSyncHandler
         private TenantScopedMonitoredCollectionSyncClaimer $claimer,
         private MessageBusInterface $commandBus,
         private int $batchSize,
+        #[Autowire(service: 'monolog.logger.catalog_import')]
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -30,8 +34,20 @@ final readonly class ProcessTenantsCollectionsSyncHandler
         ));
 
         if ($jobs === []) {
+            $this->logger->info('No eligible collections found for tenant batch', [
+                'tenant_count' => \count($command->tenantIds),
+            ]);
+
             return;
         }
+
+        $lastCollectionId = $jobs[\count($jobs) - 1]->monitoredCollectionId;
+
+        $this->logger->info('Collection batch claimed', [
+            'count' => \count($jobs),
+            'tenant_count' => \count($command->tenantIds),
+            'last_collection_id' => $lastCollectionId,
+        ]);
 
         foreach ($jobs as $job) {
             $this->commandBus->dispatch(
@@ -43,7 +59,7 @@ final readonly class ProcessTenantsCollectionsSyncHandler
         if (\count($jobs) === $this->batchSize) {
             $this->commandBus->dispatch(new ProcessTenantsCollectionsSyncCommand(
                 tenantIds: $command->tenantIds,
-                lastCollectionId: $jobs[\count($jobs) - 1]->monitoredCollectionId,
+                lastCollectionId: $lastCollectionId,
             ));
         }
     }

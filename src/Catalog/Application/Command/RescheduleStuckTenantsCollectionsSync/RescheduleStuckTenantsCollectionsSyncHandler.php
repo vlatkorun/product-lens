@@ -7,6 +7,8 @@ namespace App\Catalog\Application\Command\RescheduleStuckTenantsCollectionsSync;
 use App\Catalog\Application\Command\StartSync\StartSyncCommand;
 use App\Catalog\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -17,6 +19,8 @@ final readonly class RescheduleStuckTenantsCollectionsSyncHandler
         private MonitoredCollectionSyncRepositoryInterface $syncJobRepository,
         private MessageBusInterface $commandBus,
         private int $stuckThresholdMinutes,
+        #[Autowire(service: 'monolog.logger.catalog_import')]
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -27,6 +31,19 @@ final readonly class RescheduleStuckTenantsCollectionsSyncHandler
         $cutoff = new \DateTimeImmutable(\sprintf('-%d minutes', $threshold->thresholdMinutes));
 
         $stuckJobs = $this->syncJobRepository->findStuckPending($cutoff);
+
+        if ($stuckJobs === []) {
+            $this->logger->debug('No stuck sync jobs found', [
+                'threshold_minutes' => $threshold->thresholdMinutes,
+            ]);
+
+            return;
+        }
+
+        $this->logger->warning('Rescheduling stuck sync jobs', [
+            'count' => \count($stuckJobs),
+            'threshold_minutes' => $threshold->thresholdMinutes,
+        ]);
 
         foreach ($stuckJobs as $job) {
             $this->commandBus->dispatch(
