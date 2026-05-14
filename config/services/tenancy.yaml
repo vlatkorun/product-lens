@@ -1,10 +1,9 @@
+# yaml-language-server: $schema=../../vendor/symfony/dependency-injection/Loader/schema/services.schema.json
+
 services:
-    App\Catalog\Infrastructure\Shopify\ShopifyClient:
-        arguments:
-            $httpClient: '@http_client'
-            $apiVersion: '%env(SHOPIFY_API_VERSION)%'
-        tags:
-            - { name: symfony.client }
+    _defaults:
+        autowire: true
+        autoconfigure: true
 
     App\Tenancy\Infrastructure\Shopify\ShopifyOAuthClient:
         arguments:

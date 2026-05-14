@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../vendor/symfony/dependency-injection/Loader/schema/services.schema.json
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\Catalog\Infrastructure\Shopify\ShopifyClient:
+        arguments:
+            $httpClient: '@http_client'
+            $apiVersion: '%env(SHOPIFY_API_VERSION)%'
+        tags:
+            - { name: symfony.client }
+
+    App\Catalog\Application\Command\DispatchCollectionSyncBatch\DispatchCollectionSyncBatchHandler:
+        arguments:
+            $batchSize: 100
+
+    App\Catalog\Application\Command\ProcessTenantsCollectionsSync\ProcessTenantsCollectionsSyncHandler:
+        arguments:
+            $batchSize: 100
+
+    App\Catalog\Application\Command\RescheduleStuckTenantsCollectionsSync\RescheduleStuckTenantsCollectionsSyncHandler:
+        arguments:
+            $stuckThresholdMinutes: 5

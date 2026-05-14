@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../../vendor/symfony/dependency-injection/Loader/schema/services.schema.json
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\Audit\Infrastructure\Specification\Image\ImageDimensionsSpecification:
+        arguments:
+            $minWidth: 800
+            $minHeight: 800
