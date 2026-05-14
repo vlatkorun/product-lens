@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Infrastructure\Persistence;
+namespace App\Catalog\Infrastructure\Persistence;
 
-use App\CatalogSync\Domain\Model\Product;
-use App\CatalogSync\Domain\Repository\ProductRepositoryInterface;
-use App\CatalogSync\Domain\ValueObject\ShopifyGid;
+use App\Catalog\Domain\Model\Product;
+use App\Catalog\Domain\Repository\ProductRepositoryInterface;
+use App\Catalog\Domain\ValueObject\ShopifyGid;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\UuidV7;

@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Domain\Model;
+namespace App\Catalog\Domain\Model;
 
-use App\CatalogSync\Domain\Event\MonitoredCollectionSyncCompleted;
-use App\CatalogSync\Domain\Event\MonitoredCollectionSyncFailed;
-use App\CatalogSync\Domain\Event\MonitoredCollectionSyncPageSkipped;
-use App\CatalogSync\Domain\Event\MonitoredCollectionSyncProcessed;
-use App\CatalogSync\Domain\Event\MonitoredCollectionSyncStarted;
-use App\CatalogSync\Domain\ValueObject\ShopifyGid;
-use App\CatalogSync\Domain\ValueObject\SyncCursor;
-use App\CatalogSync\Domain\ValueObject\SyncStatus;
-use App\CatalogSync\Infrastructure\Persistence\DoctrineMonitoredCollectionSyncRepository;
+use App\Catalog\Domain\Event\MonitoredCollectionSyncCompleted;
+use App\Catalog\Domain\Event\MonitoredCollectionSyncFailed;
+use App\Catalog\Domain\Event\MonitoredCollectionSyncPageSkipped;
+use App\Catalog\Domain\Event\MonitoredCollectionSyncProcessed;
+use App\Catalog\Domain\Event\MonitoredCollectionSyncStarted;
+use App\Catalog\Domain\ValueObject\ShopifyGid;
+use App\Catalog\Domain\ValueObject\SyncCursor;
+use App\Catalog\Domain\ValueObject\SyncStatus;
+use App\Catalog\Infrastructure\Persistence\DoctrineMonitoredCollectionSyncRepository;
 use App\Shared\Domain\Model\AggregateRoot;
 use App\Shared\Domain\Model\TenantScopedInterface;
 use App\Shared\Domain\ValueObject\FeatureFlag;

@@ -1,5 +1,5 @@
 services:
-    App\CatalogSync\Infrastructure\Shopify\ShopifyClient:
+    App\Catalog\Infrastructure\Shopify\ShopifyClient:
         arguments:
             $httpClient: '@http_client'
             $apiVersion: '%env(SHOPIFY_API_VERSION)%'

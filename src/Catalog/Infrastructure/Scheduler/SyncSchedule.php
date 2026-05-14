@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Infrastructure\Scheduler;
+namespace App\Catalog\Infrastructure\Scheduler;
 
-use App\CatalogSync\Application\Command\ProcessSyncSchedule\ProcessSyncScheduleCommand;
-use App\CatalogSync\Application\Command\RescheduleStuckJobs\RescheduleStuckJobsCommand;
+use App\Catalog\Application\Command\ProcessSyncSchedule\ProcessSyncScheduleCommand;
+use App\Catalog\Application\Command\RescheduleStuckJobs\RescheduleStuckJobsCommand;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
 use Symfony\Component\Scheduler\RecurringMessage;
 use Symfony\Component\Scheduler\Schedule;

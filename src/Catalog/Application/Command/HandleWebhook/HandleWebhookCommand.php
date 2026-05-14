@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Application\Command\HandleWebhook;
+namespace App\Catalog\Application\Command\HandleWebhook;
 
 final readonly class HandleWebhookCommand
 {

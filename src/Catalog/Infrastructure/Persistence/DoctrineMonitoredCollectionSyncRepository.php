@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Infrastructure\Persistence;
+namespace App\Catalog\Infrastructure\Persistence;
 
-use App\CatalogSync\Domain\Model\MonitoredCollectionSync;
-use App\CatalogSync\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
-use App\CatalogSync\Domain\ValueObject\SyncStatus;
+use App\Catalog\Domain\Model\MonitoredCollectionSync;
+use App\Catalog\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
+use App\Catalog\Domain\ValueObject\SyncStatus;
 use App\Shared\Infrastructure\Event\DomainEventPublisher;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Infrastructure\Shopify\GraphQL;
+namespace App\Catalog\Infrastructure\Shopify\GraphQL;
 
 final readonly class GetProductQuery
 {

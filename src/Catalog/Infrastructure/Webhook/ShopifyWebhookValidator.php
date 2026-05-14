@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Infrastructure\Webhook;
+namespace App\Catalog\Infrastructure\Webhook;
 
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;

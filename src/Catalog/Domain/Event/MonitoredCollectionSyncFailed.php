@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Domain\Event;
+namespace App\Catalog\Domain\Event;
 
 use App\Shared\Domain\Event\AsyncDomainEvent;
 

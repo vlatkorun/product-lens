@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Domain\Service;
+namespace App\Catalog\Domain\Service;
 
-use App\CatalogSync\Domain\Model\Product;
-use App\CatalogSync\Domain\ValueObject\ProductFilter;
-use App\CatalogSync\Domain\ValueObject\ProductPage;
-use App\CatalogSync\Domain\ValueObject\ShopifyGid;
-use App\CatalogSync\Domain\ValueObject\SyncCursor;
+use App\Catalog\Domain\Model\Product;
+use App\Catalog\Domain\ValueObject\ProductFilter;
+use App\Catalog\Domain\ValueObject\ProductPage;
+use App\Catalog\Domain\ValueObject\ShopifyGid;
+use App\Catalog\Domain\ValueObject\SyncCursor;
 use Symfony\Component\Uid\UuidV7;
 
 interface ProductFetcherInterface

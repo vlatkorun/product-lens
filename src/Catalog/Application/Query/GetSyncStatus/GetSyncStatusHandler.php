@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Application\Query\GetSyncStatus;
+namespace App\Catalog\Application\Query\GetSyncStatus;
 
-use App\CatalogSync\Domain\Model\MonitoredCollectionSync;
-use App\CatalogSync\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
+use App\Catalog\Domain\Model\MonitoredCollectionSync;
+use App\Catalog\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\UuidV7;
 

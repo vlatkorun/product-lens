@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Domain\ValueObject;
+namespace App\Catalog\Domain\ValueObject;
 
 use App\Shared\Domain\ValueObject\FeatureFlag;
 

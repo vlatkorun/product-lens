@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Infrastructure\Doctrine\Type;
+namespace App\Catalog\Infrastructure\Doctrine\Type;
 
-use App\CatalogSync\Domain\ValueObject\ProductStatus;
+use App\Catalog\Domain\ValueObject\ProductStatus;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 

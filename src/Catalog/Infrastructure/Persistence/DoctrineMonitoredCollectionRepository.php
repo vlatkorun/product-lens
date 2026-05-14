@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Infrastructure\Persistence;
+namespace App\Catalog\Infrastructure\Persistence;
 
-use App\CatalogSync\Domain\Model\MonitoredCollection;
-use App\CatalogSync\Domain\Repository\MonitoredCollectionRepositoryInterface;
-use App\CatalogSync\Domain\ValueObject\ShopifyGid;
+use App\Catalog\Domain\Model\MonitoredCollection;
+use App\Catalog\Domain\Repository\MonitoredCollectionRepositoryInterface;
+use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Shared\Infrastructure\Event\DomainEventPublisher;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;

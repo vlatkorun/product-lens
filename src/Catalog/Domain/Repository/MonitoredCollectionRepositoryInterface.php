@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Domain\Repository;
+namespace App\Catalog\Domain\Repository;
 
-use App\CatalogSync\Domain\Model\MonitoredCollection;
-use App\CatalogSync\Domain\ValueObject\ShopifyGid;
+use App\Catalog\Domain\Model\MonitoredCollection;
+use App\Catalog\Domain\ValueObject\ShopifyGid;
 use Symfony\Component\Uid\UuidV7;
 
 interface MonitoredCollectionRepositoryInterface

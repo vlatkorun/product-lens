@@ -9,8 +9,8 @@ doctrine:
             tenant_status: App\Tenancy\Infrastructure\Doctrine\Type\TenantStatusType
             user_role: App\Identity\Infrastructure\Doctrine\Type\UserRoleType
             user_status: App\Identity\Infrastructure\Doctrine\Type\UserStatusType
-            sync_status: App\CatalogSync\Infrastructure\Doctrine\Type\SyncStatusType
-            product_status: App\CatalogSync\Infrastructure\Doctrine\Type\ProductStatusType
+            sync_status: App\Catalog\Infrastructure\Doctrine\Type\SyncStatusType
+            product_status: App\Catalog\Infrastructure\Doctrine\Type\ProductStatusType
         mapping_types:
             jsonb: jsonb
             tenant_status: tenant_status
@@ -41,12 +41,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Identity/Domain/Model'
                 prefix: 'App\Identity\Domain\Model'
                 alias: Identity
-            CatalogSync:
+            Catalog:
                 type: attribute
                 is_bundle: false
-                dir: '%kernel.project_dir%/src/CatalogSync/Domain/Model'
-                prefix: 'App\CatalogSync\Domain\Model'
-                alias: CatalogSync
+                dir: '%kernel.project_dir%/src/Catalog/Domain/Model'
+                prefix: 'App\Catalog\Domain\Model'
+                alias: Catalog
 
 when@test:
     doctrine:

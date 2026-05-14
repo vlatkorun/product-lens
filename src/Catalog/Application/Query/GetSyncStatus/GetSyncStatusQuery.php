@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Application\Query\GetSyncStatus;
+namespace App\Catalog\Application\Query\GetSyncStatus;
 
 final readonly class GetSyncStatusQuery
 {

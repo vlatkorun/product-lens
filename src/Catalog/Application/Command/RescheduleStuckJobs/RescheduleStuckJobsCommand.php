@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Application\Command\RescheduleStuckJobs;
+namespace App\Catalog\Application\Command\RescheduleStuckJobs;
 
 final readonly class RescheduleStuckJobsCommand
 {

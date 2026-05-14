@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Application\Command\StartSync;
+namespace App\Catalog\Application\Command\StartSync;
 
-use App\CatalogSync\Application\Command\FetchNextPage\FetchNextPageCommand;
-use App\CatalogSync\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
+use App\Catalog\Application\Command\FetchNextPage\FetchNextPageCommand;
+use App\Catalog\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;

@@ -19,7 +19,7 @@ services:
     App\:
         resource: '../src/'
         exclude:
-            - '../src/CatalogSync/Infrastructure/Shopify/ShopifyClient.php'
+            - '../src/Catalog/Infrastructure/Shopify/ShopifyClient.php'
             - '../src/Tenancy/Infrastructure/Shopify/ShopifyOAuthClient.php'
 
     # add more service definitions when explicit configuration is needed

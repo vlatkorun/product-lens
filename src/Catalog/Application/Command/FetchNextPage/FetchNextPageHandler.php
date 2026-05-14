@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Application\Command\FetchNextPage;
+namespace App\Catalog\Application\Command\FetchNextPage;
 
-use App\CatalogSync\Domain\Repository\MonitoredCollectionRepositoryInterface;
-use App\CatalogSync\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
-use App\CatalogSync\Domain\Repository\ProductRepositoryInterface;
-use App\CatalogSync\Domain\Service\ProductFetcherInterface;
-use App\CatalogSync\Domain\ValueObject\ProductFilter;
+use App\Catalog\Domain\Repository\MonitoredCollectionRepositoryInterface;
+use App\Catalog\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
+use App\Catalog\Domain\Repository\ProductRepositoryInterface;
+use App\Catalog\Domain\Service\ProductFetcherInterface;
+use App\Catalog\Domain\ValueObject\ProductFilter;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Application\Command\ConfigureMonitoredCollection;
+namespace App\Catalog\Application\Command\ConfigureMonitoredCollection;
 
 final readonly class ConfigureMonitoredCollectionCommand
 {

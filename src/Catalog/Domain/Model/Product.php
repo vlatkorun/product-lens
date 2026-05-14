@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Domain\Model;
+namespace App\Catalog\Domain\Model;
 
-use App\CatalogSync\Domain\ValueObject\ProductStatus;
-use App\CatalogSync\Domain\ValueObject\ShopifyGid;
-use App\CatalogSync\Infrastructure\Persistence\DoctrineProductRepository;
+use App\Catalog\Domain\ValueObject\ProductStatus;
+use App\Catalog\Domain\ValueObject\ShopifyGid;
+use App\Catalog\Infrastructure\Persistence\DoctrineProductRepository;
 use App\Shared\Domain\Model\TenantScopedInterface;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\UuidV7;

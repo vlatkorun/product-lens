@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Application\Command\ProcessSyncSchedule;
+namespace App\Catalog\Application\Command\ProcessSyncSchedule;
 
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Uid\UuidV7;

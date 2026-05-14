@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Application\Command\ConfigureMonitoredCollection;
+namespace App\Catalog\Application\Command\ConfigureMonitoredCollection;
 
-use App\CatalogSync\Domain\Model\MonitoredCollection;
-use App\CatalogSync\Domain\Repository\MonitoredCollectionRepositoryInterface;
-use App\CatalogSync\Domain\ValueObject\MonitoredCollectionConfig;
-use App\CatalogSync\Domain\ValueObject\ShopifyGid;
+use App\Catalog\Domain\Model\MonitoredCollection;
+use App\Catalog\Domain\Repository\MonitoredCollectionRepositoryInterface;
+use App\Catalog\Domain\ValueObject\MonitoredCollectionConfig;
+use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Shared\Domain\ValueObject\FeatureFlag;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\UuidV7;

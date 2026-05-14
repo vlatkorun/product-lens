@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Domain\Event;
+namespace App\Catalog\Domain\Event;
 
-use App\CatalogSync\Domain\ValueObject\SyncStatus;
+use App\Catalog\Domain\ValueObject\SyncStatus;
 use App\Shared\Domain\Event\AsyncDomainEvent;
 
 final readonly class MonitoredCollectionSyncPageSkipped implements AsyncDomainEvent

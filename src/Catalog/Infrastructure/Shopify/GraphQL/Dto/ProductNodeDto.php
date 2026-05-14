@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto;
+namespace App\Catalog\Infrastructure\Shopify\GraphQL\Dto;
 
 final readonly class ProductNodeDto
 {

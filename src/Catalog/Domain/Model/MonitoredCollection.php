@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Domain\Model;
+namespace App\Catalog\Domain\Model;
 
-use App\CatalogSync\Domain\Event\CollectionMonitoringDisabled;
-use App\CatalogSync\Domain\Event\CollectionMonitoringEnabled;
-use App\CatalogSync\Domain\ValueObject\MonitoredCollectionConfig;
-use App\CatalogSync\Domain\ValueObject\ShopifyGid;
-use App\CatalogSync\Infrastructure\Persistence\DoctrineMonitoredCollectionRepository;
+use App\Catalog\Domain\Event\CollectionMonitoringDisabled;
+use App\Catalog\Domain\Event\CollectionMonitoringEnabled;
+use App\Catalog\Domain\ValueObject\MonitoredCollectionConfig;
+use App\Catalog\Domain\ValueObject\ShopifyGid;
+use App\Catalog\Infrastructure\Persistence\DoctrineMonitoredCollectionRepository;
 use App\Shared\Domain\Model\AggregateRoot;
 use App\Shared\Domain\Model\TenantScopedInterface;
 use App\Shared\Domain\ValueObject\FeatureFlag;

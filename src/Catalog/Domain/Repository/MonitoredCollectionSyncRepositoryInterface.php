@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Domain\Repository;
+namespace App\Catalog\Domain\Repository;
 
-use App\CatalogSync\Domain\Model\MonitoredCollectionSync;
+use App\Catalog\Domain\Model\MonitoredCollectionSync;
 use Symfony\Component\Uid\UuidV7;
 
 interface MonitoredCollectionSyncRepositoryInterface

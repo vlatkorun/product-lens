@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Infrastructure\Webhook;
+namespace App\Catalog\Infrastructure\Webhook;
 
-use App\CatalogSync\Application\Command\HandleWebhook\HandleWebhookCommand;
-use App\CatalogSync\Domain\ValueObject\ShopifyGid;
+use App\Catalog\Application\Command\HandleWebhook\HandleWebhookCommand;
+use App\Catalog\Domain\ValueObject\ShopifyGid;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

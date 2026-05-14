@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Domain\ValueObject;
+namespace App\Catalog\Domain\ValueObject;
 
-use App\CatalogSync\Domain\Model\Product;
+use App\Catalog\Domain\Model\Product;
 
 final readonly class ProductPage
 {

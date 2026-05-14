@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Infrastructure\Shopify;
+namespace App\Catalog\Infrastructure\Shopify;
 
-use App\CatalogSync\Domain\Model\Product;
-use App\CatalogSync\Domain\Service\ProductFetcherInterface;
-use App\CatalogSync\Domain\ValueObject\ProductFilter;
-use App\CatalogSync\Domain\ValueObject\ProductPage;
-use App\CatalogSync\Domain\ValueObject\ProductStatus;
-use App\CatalogSync\Domain\ValueObject\ShopifyGid;
-use App\CatalogSync\Domain\ValueObject\SyncCursor;
-use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\GetProductResponseDto;
-use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\ImageDto;
-use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\ProductNodeDto;
-use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\ProductsByCollectionResponseDto;
-use App\CatalogSync\Infrastructure\Shopify\GraphQL\Dto\VariantDto;
-use App\CatalogSync\Infrastructure\Shopify\GraphQL\GetProductQuery;
-use App\CatalogSync\Infrastructure\Shopify\GraphQL\ProductsByCollectionQuery;
+use App\Catalog\Domain\Model\Product;
+use App\Catalog\Domain\Service\ProductFetcherInterface;
+use App\Catalog\Domain\ValueObject\ProductFilter;
+use App\Catalog\Domain\ValueObject\ProductPage;
+use App\Catalog\Domain\ValueObject\ProductStatus;
+use App\Catalog\Domain\ValueObject\ShopifyGid;
+use App\Catalog\Domain\ValueObject\SyncCursor;
+use App\Catalog\Infrastructure\Shopify\GraphQL\Dto\GetProductResponseDto;
+use App\Catalog\Infrastructure\Shopify\GraphQL\Dto\ImageDto;
+use App\Catalog\Infrastructure\Shopify\GraphQL\Dto\ProductNodeDto;
+use App\Catalog\Infrastructure\Shopify\GraphQL\Dto\ProductsByCollectionResponseDto;
+use App\Catalog\Infrastructure\Shopify\GraphQL\Dto\VariantDto;
+use App\Catalog\Infrastructure\Shopify\GraphQL\GetProductQuery;
+use App\Catalog\Infrastructure\Shopify\GraphQL\ProductsByCollectionQuery;
 use App\Tenancy\Domain\Repository\TenantRepositoryInterface;
 use Symfony\Component\Uid\UuidV7;
 

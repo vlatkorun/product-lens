@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\CatalogSync\Application\Command\ProcessSyncSchedule;
+namespace App\Catalog\Application\Command\ProcessSyncSchedule;
 
-use App\CatalogSync\Application\Command\StartSync\StartSyncCommand;
+use App\Catalog\Application\Command\StartSync\StartSyncCommand;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -21,7 +21,7 @@ final readonly class ProcessSyncScheduleHandler
 
     public function __invoke(ProcessSyncScheduleCommand $_command): void
     {
-        $result = $this->claimer->claim(new \DateTimeImmutable());
+        $result = $this->claimer->claim(new \DateTimeImmutable()); 
 
         foreach ($result->jobs as $job) {
             $this->commandBus->dispatch(
