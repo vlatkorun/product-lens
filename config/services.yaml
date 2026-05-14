@@ -33,3 +33,11 @@ services:
     App\Catalog\Application\Command\DispatchCollectionSyncBatch\DispatchCollectionSyncBatchHandler:
         arguments:
             $batchSize: 100
+
+    App\Catalog\Application\Command\ProcessTenantsCollectionsSync\ProcessTenantsCollectionsSyncHandler:
+        arguments:
+            $batchSize: 100
+
+    App\Catalog\Application\Command\RescheduleStuckTenantsCollectionsSync\RescheduleStuckTenantsCollectionsSyncHandler:
+        arguments:
+            $stuckThresholdMinutes: 5

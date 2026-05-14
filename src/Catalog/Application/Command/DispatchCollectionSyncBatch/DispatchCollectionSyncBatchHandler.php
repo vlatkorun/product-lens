@@ -20,13 +20,13 @@ final readonly class DispatchCollectionSyncBatchHandler
 
     public function __invoke(DispatchCollectionSyncBatchCommand $command): void
     {
-        if ($command->tenantIds !== []) {
-            $this->commandBus->dispatch(new ProcessTenantsCollectionsSyncCommand($command->tenantIds));
+        if ($command->criteria->tenantIds !== []) {
+            $this->commandBus->dispatch(new ProcessTenantsCollectionsSyncCommand($command->criteria->tenantIds));
 
             return;
         }
 
-        $tenantIds = $this->claimer->claim($command->lastTenantId, $this->batchSize);
+        $tenantIds = $this->claimer->claim(new ActiveTenantBatchCriteriaDto($command->criteria->lastTenantId, $this->batchSize));
 
         if ($tenantIds === []) {
             return;
@@ -36,7 +36,7 @@ final readonly class DispatchCollectionSyncBatchHandler
 
         if (\count($tenantIds) === $this->batchSize) {
             $this->commandBus->dispatch(new DispatchCollectionSyncBatchCommand(
-                lastTenantId: $tenantIds[\count($tenantIds) - 1],
+                new DispatchCollectionSyncBatchCriteriaDto(lastTenantId: $tenantIds[\count($tenantIds) - 1]),
             ));
         }
     }

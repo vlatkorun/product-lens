@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Command\RescheduleStuckJobs;
+namespace App\Catalog\Application\Command\RescheduleStuckTenantsCollectionsSync;
 
 use App\Catalog\Application\Command\StartSync\StartSyncCommand;
 use App\Catalog\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
@@ -11,23 +11,22 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
-final readonly class RescheduleStuckJobsHandler
+final readonly class RescheduleStuckTenantsCollectionsSyncHandler
 {
-    private const STUCK_THRESHOLD_MINUTES = 5;
-
     public function __construct(
         private MonitoredCollectionSyncRepositoryInterface $syncJobRepository,
         private MessageBusInterface $commandBus,
+        private int $stuckThresholdMinutes,
     ) {
     }
 
-    public function __invoke(RescheduleStuckJobsCommand $command): void
+    public function __invoke(RescheduleStuckTenantsCollectionsSyncCommand $_command): void
     {
-        $threshold = new \DateTimeImmutable(
-            \sprintf('-%d minutes', self::STUCK_THRESHOLD_MINUTES),
-        );
+        $threshold = new StuckCollectionSyncThresholdDto($this->stuckThresholdMinutes);
 
-        $stuckJobs = $this->syncJobRepository->findStuckPending($threshold);
+        $cutoff = new \DateTimeImmutable(\sprintf('-%d minutes', $threshold->thresholdMinutes));
+
+        $stuckJobs = $this->syncJobRepository->findStuckPending($cutoff);
 
         foreach ($stuckJobs as $job) {
             $this->commandBus->dispatch(

@@ -6,10 +6,8 @@ namespace App\Catalog\Application\Command\DispatchCollectionSyncBatch;
 
 final readonly class DispatchCollectionSyncBatchCommand
 {
-    /** @param list<string> $tenantIds */
     public function __construct(
-        public array $tenantIds = [],
-        public ?string $lastTenantId = null,
+        public DispatchCollectionSyncBatchCriteriaDto $criteria = new DispatchCollectionSyncBatchCriteriaDto(),
     ) {
     }
 }

@@ -211,7 +211,7 @@ src/
 │       ├── Shopify/GraphQL/Dto/{ImageDto,ProductNodeDto,PageInfoDto,...}.php  ← typed response DTOs
 │       ├── Shopify/Webhook/{ShopifyWebhookController,ShopifyWebhookValidator}.php
 │       ├── Persistence/{DoctrineMonitoredCollectionSyncRepository,DoctrineProductRepository}.php
-│       └── Scheduler/SyncSchedule.php            ← Symfony Scheduler
+│       └── Scheduler/CatalogImportSchedule.php    ← Symfony Scheduler
 │
 └── Audit/
     ├── Domain/
@@ -307,7 +307,7 @@ implements it in Infrastructure via `ShopifyClient` (which wraps `HttpClientInte
 and the versioned Shopify GraphQL Admin API). Responses are parsed through typed DTOs
 before being mapped to domain objects. The domain never touches HTTP or raw arrays.
 
-Periodic sync is driven by `SyncSchedule` (Symfony Scheduler component).
+Periodic sync is driven by `CatalogImportSchedule` (Symfony Scheduler component).
 Webhook-triggered syncs go through `HandleWebhookCommand`, which creates or
 resumes a `MonitoredCollectionSync` for the affected collection.
 

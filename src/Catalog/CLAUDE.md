@@ -195,12 +195,12 @@ Each DTO has a `static fromResponse(array $data)` or `fromNode(array $node)` fac
 
 HMAC-SHA256 validation against `SHOPIFY_WEBHOOK_SECRET` env var (`#[Autowire(env: 'SHOPIFY_WEBHOOK_SECRET')]`).
 
-### `SyncSchedule`
+### `CatalogImportSchedule`
 
 ```php
-#[AsSchedule('catalog_sync')]
-// worker: messenger:consume scheduler_catalog_sync
-RecurringMessage::every('5 minutes', new ProcessSyncScheduleCommand())
+#[AsSchedule('catalog_import')]
+// worker: messenger:consume scheduler_catalog_import
+RecurringMessage::every('5 minutes', new DispatchCollectionSyncBatchCommand())
 RecurringMessage::every('2 minutes', new RescheduleStuckJobsCommand())
 ```
 

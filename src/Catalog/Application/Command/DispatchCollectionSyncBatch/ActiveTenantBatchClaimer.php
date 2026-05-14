@@ -14,15 +14,15 @@ final readonly class ActiveTenantBatchClaimer
     }
 
     /** @return list<string> */
-    public function claim(?string $lastTenantId, int $batchSize): array
+    public function claim(ActiveTenantBatchCriteriaDto $criteria): array
     {
         $this->connection->beginTransaction();
 
         try {
-            $params = ['batchSize' => $batchSize];
+            $params = ['batchSize' => $criteria->batchSize];
             $types = ['batchSize' => Types::INTEGER];
 
-            if ($lastTenantId !== null) {
+            if ($criteria->lastTenantId !== null) {
                 $sql = <<<'SQL'
                     SELECT resource_id
                     FROM tenants
@@ -32,7 +32,7 @@ final readonly class ActiveTenantBatchClaimer
                     LIMIT :batchSize
                     FOR UPDATE SKIP LOCKED
                     SQL;
-                $params['lastTenantId'] = $lastTenantId;
+                $params['lastTenantId'] = $criteria->lastTenantId;
             } else {
                 $sql = <<<'SQL'
                     SELECT resource_id
