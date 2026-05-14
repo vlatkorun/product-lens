@@ -188,7 +188,7 @@ src/
 │       ├── Symfony/OAuthStateStore.php           ← implements OAuthStateStoreInterface via cache.app
 │       └── Symfony/TenantContextMiddleware.php   ← planned
 │
-├── CatalogSync/
+├── Catalog/
 │   ├── Domain/
 │   │   ├── Model/MonitoredCollection.php         ← aggregate root (table: tenant_monitored_collections)
 │   │   ├── Model/MonitoredCollectionSync.php     ← aggregate root (table: tenant_monitored_collections_sync)
@@ -199,11 +199,12 @@ src/
 │   │   ├── Service/ProductFetcherInterface.php   ← domain service contract
 │   │   └── Event/{MonitoredCollectionSyncCompleted,MonitoredCollectionSyncFailed,...}.php
 │   ├── Application/
-│   │   ├── Command/ProcessSyncSchedule/{Command,Handler,MonitoredCollectionSyncClaimer}.php
+│   │   ├── Command/DispatchCollectionSyncBatch/{Command,Handler,ActiveTenantBatchClaimer,ActiveTenantBatchCriteriaDto,DispatchCollectionSyncBatchCriteriaDto}.php
+│   │   ├── Command/ProcessTenantsCollectionsSync/{Command,Handler,TenantScopedMonitoredCollectionSyncClaimer,TenantCollectionSyncClaimCriteriaDto,ClaimedTenantCollectionSyncDto}.php
 │   │   ├── Command/StartSync/{Command,Handler}.php
 │   │   ├── Command/FetchNextPage/{Command,Handler}.php
 │   │   ├── Command/HandleWebhook/{Command,Handler}.php
-│   │   ├── Command/RescheduleStuckJobs/{Command,Handler}.php
+│   │   ├── Command/RescheduleStuckTenantsCollectionsSync/{Command,Handler,StuckCollectionSyncThresholdDto}.php
 │   │   └── Query/GetSyncStatus/{Query,Handler}.php
 │   └── Infrastructure/
 │       ├── Shopify/ShopifyClient.php             ← GraphQL transport; holds HttpClient + SHOPIFY_API_VERSION
@@ -482,12 +483,16 @@ every repository and handler.
 ## Cross-context event flow
 
 ```
-[Shopify webhook]  ──►  HandleWebhookCommand
-[Symfony Scheduler] ──►  ProcessSyncScheduleCommand
+[Shopify webhook]   ──►  HandleWebhookCommand
+[Symfony Scheduler] ──►  DispatchCollectionSyncBatchCommand
                               │
-                        MonitoredCollectionSyncClaimer::claim()
-                              │ (per eligible collection, in one transaction)
-                        StartSyncCommand dispatched
+                        ActiveTenantBatchClaimer::claim()
+                              │ (up to 100 active tenants, keyset-paginated, self-dispatching)
+                        ProcessTenantsCollectionsSyncCommand dispatched per tenant batch
+                              │
+                        TenantScopedMonitoredCollectionSyncClaimer::claim()
+                              │ (up to 100 collections per tenant batch, keyset-paginated, self-dispatching)
+                        StartSyncCommand dispatched per claimed collection
                               │
                         MonitoredCollectionSync::recordPage()
                               │ (on last page)
