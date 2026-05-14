@@ -44,7 +44,6 @@ final class Version20260511000001 extends AbstractMigration
                     shopify_access_token   TEXT         DEFAULT NULL,
                     shopify_webhook_secret TEXT         DEFAULT NULL,
                     configuration          JSONB        NOT NULL DEFAULT '{}',
-                    feature_flags          JSONB        NOT NULL DEFAULT '[]',
                     PRIMARY KEY (id)
                 )
             SQL);

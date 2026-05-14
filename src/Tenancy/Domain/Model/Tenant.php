@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Tenancy\Domain\Model;
 
 use App\Shared\Domain\Model\AggregateRoot;
-use App\Shared\Domain\ValueObject\FeatureFlag;
+use App\Shared\Domain\ValueObject\AuditCheck;
 use App\Tenancy\Domain\Event\TenantCreated;
 use App\Tenancy\Domain\Event\TenantReinstalled;
-use App\Tenancy\Domain\Exception\FeatureAlreadyEnabledException;
+use App\Tenancy\Domain\Exception\AuditCheckEnabledException;
 use App\Tenancy\Domain\ValueObject\TenantStatus;
 use App\Tenancy\Infrastructure\Persistence\DoctrineTenantRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -27,7 +27,7 @@ class Tenant extends AggregateRoot
     #[ORM\Id]
     #[ORM\Column(type: 'bigint')]
     #[ORM\GeneratedValue(strategy: 'IDENTITY')]
-    private ?string $id = null;
+    private ?int $id = null;
 
     #[ORM\Column(name: 'resource_id', type: 'uuid')]
     private UuidV7 $resourceId;
@@ -83,12 +83,8 @@ class Tenant extends AggregateRoot
     #[ORM\Column(type: 'jsonb', options: ['default' => '{}'])]
     private array $configuration = [];
 
-    /** @var string[] raw backing values for $featureFlags, persisted to DB */
-    #[ORM\Column(name: 'feature_flags', type: 'jsonb', options: ['default' => '[]'])]
-    private array $featureFlagsRaw = [];
-
-    /** @var FeatureFlag[] transient — hydrated from on PostLoad */
-    private array $featureFlags = [];
+    /** @var AuditCheck[] transient — hydrated from configuration['audit']['checks'] on PostLoad */
+    private array $auditChecks = [];
 
     private function __construct()
     {
@@ -126,46 +122,46 @@ class Tenant extends AggregateRoot
     #[ORM\PrePersist]
     public function onPrePersist(): void
     {
-        $this->serializeFeatureFlags();
+        $this->serializeAuditChecks();
     }
 
     #[ORM\PreUpdate]
     public function onPreUpdate(): void
     {
         $this->updatedAt = new \DateTimeImmutable();
-        $this->serializeFeatureFlags();
+        $this->serializeAuditChecks();
     }
 
     #[ORM\PostLoad]
     public function onPostLoad(): void
     {
-        $this->hydrateFeatureFlags();
+        $this->hydrateAuditChecks();
     }
 
-    // --- Feature flag management ---
+    // --- Audit check management ---
 
-    public function enableFeature(FeatureFlag $flag): void
+    public function enableAuditCheck(AuditCheck $check): void
     {
-        if ($this->hasFeature($flag)) {
-            throw FeatureAlreadyEnabledException::forFlag($flag);
+        if ($this->hasAuditCheck($check)) {
+            throw AuditCheckEnabledException::forFlag($check);
         }
 
-        $this->featureFlags[] = $flag;
+        $this->auditChecks[] = $check;
     }
 
-    public function disableFeature(FeatureFlag $flag): void
+    public function disableAuditCheck(AuditCheck $check): void
     {
-        $this->featureFlags = \array_values(
+        $this->auditChecks = \array_values(
             \array_filter(
-                $this->featureFlags,
-                static fn (FeatureFlag $f): bool => $f !== $flag,
+                $this->auditChecks,
+                static fn (AuditCheck $c): bool => $c !== $check,
             ),
         );
     }
 
-    public function hasFeature(FeatureFlag $flag): bool
+    public function hasAuditCheck(AuditCheck $check): bool
     {
-        return \in_array($flag, $this->featureFlags, strict: true);
+        return \in_array($check, $this->auditChecks, strict: true);
     }
 
     // --- Shopify OAuth credentials ---
@@ -311,25 +307,25 @@ class Tenant extends AggregateRoot
         return $this->configuration;
     }
 
-    /** @return FeatureFlag[] */
-    public function featureFlags(): array
+    /** @return AuditCheck[] */
+    public function auditChecks(): array
     {
-        return $this->featureFlags;
+        return $this->auditChecks;
     }
 
-    private function serializeFeatureFlags(): void
+    private function serializeAuditChecks(): void
     {
-        $this->featureFlagsRaw = \array_map(
-            static fn (FeatureFlag $flag): string => $flag->value,
-            $this->featureFlags,
+        $this->configuration['audit']['checks'] = \array_map(
+            static fn (AuditCheck $check): string => $check->value,
+            $this->auditChecks,
         );
     }
 
-    private function hydrateFeatureFlags(): void
+    private function hydrateAuditChecks(): void
     {
-        $this->featureFlags = \array_map(
-            static fn (string $value): FeatureFlag => FeatureFlag::from($value),
-            $this->featureFlagsRaw ?? [],
+        $this->auditChecks = \array_map(
+            static fn (string $value): AuditCheck => AuditCheck::from($value),
+            $this->configuration['audit']['checks'] ?? [],
         );
     }
 }
