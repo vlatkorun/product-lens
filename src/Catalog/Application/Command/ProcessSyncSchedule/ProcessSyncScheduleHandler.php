@@ -21,7 +21,7 @@ final readonly class ProcessSyncScheduleHandler
 
     public function __invoke(ProcessSyncScheduleCommand $_command): void
     {
-        $result = $this->claimer->claim(new \DateTimeImmutable()); 
+        $result = $this->claimer->claim(new \DateTimeImmutable());
 
         foreach ($result->jobs as $job) {
             $this->commandBus->dispatch(

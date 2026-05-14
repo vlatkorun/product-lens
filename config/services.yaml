@@ -29,3 +29,7 @@ services:
         arguments:
             $minWidth: 800
             $minHeight: 800
+
+    App\Catalog\Application\Command\DispatchCollectionSyncBatch\DispatchCollectionSyncBatchHandler:
+        arguments:
+            $batchSize: 100

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Catalog\Infrastructure\Scheduler;
 
-use App\Catalog\Application\Command\ProcessSyncSchedule\ProcessSyncScheduleCommand;
+use App\Catalog\Application\Command\DispatchCollectionSyncBatch\DispatchCollectionSyncBatchCommand;
 use App\Catalog\Application\Command\RescheduleStuckJobs\RescheduleStuckJobsCommand;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
 use Symfony\Component\Scheduler\RecurringMessage;
@@ -20,7 +20,7 @@ final class SyncSchedule implements ScheduleProviderInterface
     {
         return $this->schedule ??= new Schedule()
             ->with(
-                RecurringMessage::every('5 minutes', new ProcessSyncScheduleCommand()),
+                RecurringMessage::every('5 minutes', new DispatchCollectionSyncBatchCommand()),
                 RecurringMessage::every('2 minutes', new RescheduleStuckJobsCommand()),
             );
     }

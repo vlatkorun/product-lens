@@ -22,3 +22,4 @@ framework:
             Symfony\Component\Notifier\Message\ChatMessage: async
             Symfony\Component\Notifier\Message\SmsMessage: async
             'App\Shared\Domain\Event\AsyncDomainEvent': async
+            'App\Catalog\Application\Command\DispatchCollectionSyncBatch\DispatchCollectionSyncBatchCommand': async
