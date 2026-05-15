@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Catalog\Application\Command\DispatchCollectionSyncBatch;
 
+use App\Catalog\Application\Claim\ActiveTenantBatchClaimerInterface;
+use App\Catalog\Application\Claim\ActiveTenantBatchCriteriaDto;
 use App\Catalog\Application\Command\ProcessTenantsCollectionsSync\ProcessTenantsCollectionsSyncCommand;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -14,7 +16,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 final readonly class DispatchCollectionSyncBatchHandler
 {
     public function __construct(
-        private ActiveTenantBatchClaimer $claimer,
+        private ActiveTenantBatchClaimerInterface $claimer,
         private MessageBusInterface $commandBus,
         private int $batchSize,
         #[Autowire(service: 'monolog.logger.catalog_import')]

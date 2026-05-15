@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Catalog\Application\Command\ProcessTenantsCollectionsSync;
 
+use App\Catalog\Application\Claim\TenantCollectionSyncClaimCriteriaDto;
+use App\Catalog\Application\Claim\TenantScopedMonitoredCollectionSyncClaimerInterface;
 use App\Catalog\Application\Command\StartSync\StartSyncCommand;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
 use Psr\Log\LoggerInterface;
@@ -16,7 +18,7 @@ use Symfony\Component\Uid\UuidV7;
 final readonly class ProcessTenantsCollectionsSyncHandler
 {
     public function __construct(
-        private TenantScopedMonitoredCollectionSyncClaimer $claimer,
+        private TenantScopedMonitoredCollectionSyncClaimerInterface $claimer,
         private MessageBusInterface $commandBus,
         private int $batchSize,
         #[Autowire(service: 'monolog.logger.catalog_import')]

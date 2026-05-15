@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Infrastructure\Shopify;
+namespace App\Catalog\Infrastructure\Api;
 
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 

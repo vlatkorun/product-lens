@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Command\DispatchCollectionSyncBatch;
+namespace App\Catalog\Infrastructure\Claim;
 
+use App\Catalog\Application\Claim\ActiveTenantBatchClaimerInterface;
+use App\Catalog\Application\Claim\ActiveTenantBatchCriteriaDto;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Types;
 
-final readonly class ActiveTenantBatchClaimer
+final readonly class DoctrineActiveTenantBatchClaimer implements ActiveTenantBatchClaimerInterface
 {
     public function __construct(private Connection $connection)
     {

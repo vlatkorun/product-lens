@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Infrastructure\Shopify\GraphQL;
+namespace App\Catalog\Infrastructure\Api\GraphQL\Product\Query;
 
 final readonly class ProductsByCollectionQuery
 {

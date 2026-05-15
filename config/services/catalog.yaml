@@ -5,7 +5,7 @@ services:
         autowire: true
         autoconfigure: true
 
-    App\Catalog\Infrastructure\Shopify\ShopifyClient:
+    App\Catalog\Infrastructure\Api\ShopifyClient:
         arguments:
             $httpClient: '@http_client'
             $apiVersion: '%env(SHOPIFY_API_VERSION)%'

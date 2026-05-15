@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Infrastructure\Shopify;
+namespace App\Catalog\Infrastructure\Catalog;
 
 use App\Catalog\Domain\Model\Product;
 use App\Catalog\Domain\Service\ProductCatalogInterface;
@@ -11,13 +11,14 @@ use App\Catalog\Domain\ValueObject\ProductPage;
 use App\Catalog\Domain\ValueObject\ProductStatus;
 use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Catalog\Domain\ValueObject\SyncCursor;
-use App\Catalog\Infrastructure\Shopify\GraphQL\Dto\GetProductResponseDto;
-use App\Catalog\Infrastructure\Shopify\GraphQL\Dto\ImageDto;
-use App\Catalog\Infrastructure\Shopify\GraphQL\Dto\ProductNodeDto;
-use App\Catalog\Infrastructure\Shopify\GraphQL\Dto\ProductsByCollectionResponseDto;
-use App\Catalog\Infrastructure\Shopify\GraphQL\Dto\VariantDto;
-use App\Catalog\Infrastructure\Shopify\GraphQL\GetProductQuery;
-use App\Catalog\Infrastructure\Shopify\GraphQL\ProductsByCollectionQuery;
+use App\Catalog\Infrastructure\Api\GraphQL\Product\Query\Dto\GetProductResponseDto;
+use App\Catalog\Infrastructure\Api\GraphQL\Product\Query\Dto\ImageDto;
+use App\Catalog\Infrastructure\Api\GraphQL\Product\Query\Dto\ProductNodeDto;
+use App\Catalog\Infrastructure\Api\GraphQL\Product\Query\Dto\ProductsByCollectionResponseDto;
+use App\Catalog\Infrastructure\Api\GraphQL\Product\Query\Dto\VariantDto;
+use App\Catalog\Infrastructure\Api\GraphQL\Product\Query\GetProductQuery;
+use App\Catalog\Infrastructure\Api\GraphQL\Product\Query\ProductsByCollectionQuery;
+use App\Catalog\Infrastructure\Api\ShopifyClient;
 use App\Tenancy\Domain\Repository\TenantRepositoryInterface;
 use Symfony\Component\Uid\UuidV7;
 
@@ -29,7 +30,7 @@ final readonly class ProductCatalog implements ProductCatalogInterface
     ) {
     }
 
-    public function fetchByGid(ShopifyGid $gid, UuidV7 $tenantId): Product
+    public function getByGid(ShopifyGid $gid, UuidV7 $tenantId): Product
     {
         ['shopDomain' => $shopDomain, 'accessToken' => $accessToken] = $this->resolveCredentials($tenantId);
 
@@ -45,7 +46,7 @@ final readonly class ProductCatalog implements ProductCatalogInterface
         return $this->mapProduct($dto->product, $gid, $tenantId, new \DateTimeImmutable());
     }
 
-    public function fetchPage(
+    public function getPage(
         ProductFilter $filter,
         UuidV7 $tenantId,
         ?SyncCursor $after = null,

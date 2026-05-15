@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Command\ProcessTenantsCollectionsSync;
+namespace App\Catalog\Infrastructure\Claim;
 
+use App\Catalog\Application\Claim\ClaimedTenantCollectionSyncDto;
+use App\Catalog\Application\Claim\TenantCollectionSyncClaimCriteriaDto;
+use App\Catalog\Application\Claim\TenantScopedMonitoredCollectionSyncClaimerInterface;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Uid\UuidV7;
 
-final readonly class TenantScopedMonitoredCollectionSyncClaimer
+final readonly class DoctrineTenantScopedMonitoredCollectionSyncClaimer implements TenantScopedMonitoredCollectionSyncClaimerInterface
 {
     public function __construct(private Connection $connection)
     {

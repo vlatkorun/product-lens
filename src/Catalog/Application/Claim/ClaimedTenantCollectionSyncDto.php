@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Command\ProcessTenantsCollectionsSync;
+namespace App\Catalog\Application\Claim;
 
 final readonly class ClaimedTenantCollectionSyncDto
 {

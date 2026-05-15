@@ -7,7 +7,7 @@ namespace App\Catalog\Application\Command\FetchNextPage;
 use App\Catalog\Domain\Repository\MonitoredCollectionRepositoryInterface;
 use App\Catalog\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
 use App\Catalog\Domain\Repository\ProductRepositoryInterface;
-use App\Catalog\Domain\Service\ProductFetcherInterface;
+use App\Catalog\Domain\Service\ProductCatalogInterface;
 use App\Catalog\Domain\ValueObject\ProductFilter;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
 use Doctrine\ORM\EntityManagerInterface;
@@ -24,7 +24,7 @@ final readonly class FetchNextPageHandler
         private EntityManagerInterface $entityManager,
         private MonitoredCollectionSyncRepositoryInterface $syncJobRepository,
         private MonitoredCollectionRepositoryInterface $collectionRepository,
-        private ProductFetcherInterface $productFetcher,
+        private ProductCatalogInterface $productFetcher,
         private ProductRepositoryInterface $productRepository,
         private MessageBusInterface $commandBus,
         #[Autowire(service: 'monolog.logger.catalog_import')]
@@ -58,7 +58,7 @@ final readonly class FetchNextPageHandler
                 return;
             }
 
-            $page = $this->productFetcher->fetchPage(
+            $page = $this->productFetcher->getPage(
                 new ProductFilter($job->collectionGid()),
                 $job->tenantId(),
                 $job->cursor(),

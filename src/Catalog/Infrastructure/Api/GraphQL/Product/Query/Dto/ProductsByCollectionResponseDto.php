@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Infrastructure\Shopify\GraphQL\Dto;
+namespace App\Catalog\Infrastructure\Api\GraphQL\Product\Query\Dto;
 
 final readonly class ProductsByCollectionResponseDto
 {
