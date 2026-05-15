@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Catalog\Application\Command\HandleWebhook;
 
+use App\Catalog\Domain\Model\MonitoredCollection;
+use App\Catalog\Domain\Repository\MonitoredCollectionRepositoryInterface;
 use App\Catalog\Domain\ValueObject\ShopifyGid;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -16,12 +18,32 @@ final readonly class HandleWebhookHandler
     public function __construct(
         #[Autowire(service: 'monolog.logger.catalog_import')]
         private LoggerInterface $logger,
+        private MonitoredCollectionRepositoryInterface $monitoredCollectionRepository,
     ) {
+    }
+
+    /** @return list<MonitoredCollection> */
+    private function resolveMonitoredCollections(HandleWebhookCommand $command, UuidV7 $tenantId): array
+    {
+        $collectionIds = $command->payload->collectionIds;
+
+        $matched = [];
+        foreach ($collectionIds as $collectionId) {
+            $collection = $this->monitoredCollectionRepository->findByTenantAndCollectionGid(
+                $tenantId,
+                ShopifyGid::collection($collectionId),
+            );
+
+            if ($collection !== null && $collection->isEnabled()) {
+                $matched[] = $collection;
+            }
+        }
+
+        return $matched;
     }
 
     public function __invoke(HandleWebhookCommand $command): void
     {
-        $gid = ShopifyGid::fromString($command->shopifyObjectId);
         $tenantId = UuidV7::fromString($command->tenantId);
 
         $this->logger->info('Handling Shopify webhook', [
@@ -31,6 +53,16 @@ final readonly class HandleWebhookHandler
         ]);
 
         if ($command->topic->isFor('product')) {
+            $monitoredCollections = $this->resolveMonitoredCollections($command, $tenantId);
+
+            if ($monitoredCollections === []) {
+                $this->logger->info('Webhook product does not belong to any monitored collection, skipping', [
+                    'shopify_object_id' => $command->shopifyObjectId,
+                    'tenant_id'         => $command->tenantId,
+                ]);
+
+                return;
+            }
         }
     }
 }

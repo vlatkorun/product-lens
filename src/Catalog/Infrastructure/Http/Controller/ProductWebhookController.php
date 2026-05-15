@@ -9,6 +9,7 @@ use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Catalog\Domain\ValueObject\ShopifyWebhookTopic;
 use App\Catalog\Infrastructure\Http\Attribute\ValidateShopifySignature;
 use App\Catalog\Infrastructure\Http\Attribute\ValidateShopifyTopic;
+use App\Catalog\Infrastructure\Http\Product\Dto\ProductWebhookPayloadDto;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,8 +29,10 @@ final readonly class ProductWebhookController
     public function handle(Request $request, string $tenantId): JsonResponse
     {
         $topic = ShopifyWebhookTopic::from($request->headers->get('X-Shopify-Topic', ''));
-        $payload = \json_decode((string) $request->getContent(), true, 512, \JSON_THROW_ON_ERROR);
-        $shopifyObjectId = ShopifyGid::product($payload['id'])->value;
+        $payload = ProductWebhookPayloadDto::fromArray(
+            \json_decode((string) $request->getContent(), true, 512, \JSON_THROW_ON_ERROR),
+        );
+        $shopifyObjectId = ShopifyGid::product($payload->id)->value;
 
         $this->commandBus->dispatch(new HandleWebhookCommand($tenantId, $shopifyObjectId, $topic, $payload));
 
