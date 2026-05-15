@@ -79,20 +79,19 @@ Read model snapshot of a Shopify product. Not an aggregate — no domain events.
 | Command | Handler responsibility |
 |---|---|
 | `ConfigureMonitoredCollectionCommand` | Upsert `MonitoredCollection` by `(tenantId, collectionGid)`; idempotent |
-| `DispatchCollectionSyncBatchCommand(criteria)` | **Targeted path** (`criteria.tenantIds` non-empty): dispatch `ProcessTenantsCollectionsSyncCommand` immediately. **Paginated path** (`criteria.tenantIds` empty): call `ActiveTenantBatchClaimer` to claim up to 100 active tenants via keyset pagination, dispatch `ProcessTenantsCollectionsSyncCommand` per batch, self-dispatch with advanced `lastTenantId` cursor until batch < 100 |
-| `ProcessTenantsCollectionsSyncCommand(tenantIds, lastCollectionId)` | Call `TenantScopedMonitoredCollectionSyncClaimer` to claim up to 100 eligible collections for the given tenants, dispatch `StartSyncCommand` + `TenantStamp` per claimed job, self-dispatch with advanced `lastCollectionId` cursor if batch was full |
-| `StartSyncCommand(syncJobId)` | Load existing Pending job; call `start()`; dispatch `FetchNextPageCommand` |
-| `FetchNextPageCommand(syncJobId)` | Fetch page from Shopify; upsert products; call `recordPage()`; re-dispatch if `hasNextPage` |
+| `DispatchTenantsCollectionsSyncCommand(criteria)` | **Targeted path** (`criteria.tenantIds` non-empty): dispatch `AcquireTenantsCollectionsForSyncCommand` immediately. **Paginated path** (`criteria.tenantIds` empty): call `ActiveTenantBatchClaimer` to claim up to 100 active tenants via keyset pagination, dispatch `AcquireTenantsCollectionsForSyncCommand` per batch, self-dispatch with advanced `lastTenantId` cursor until batch < 100 |
+| `AcquireTenantsCollectionsForSyncCommand(tenantIds, lastCollectionId)` | Call `TenantScopedMonitoredCollectionSyncClaimer` to claim up to 100 eligible collections for the given tenants, dispatch `ProcessTenantCollectionSyncCommand` + `TenantStamp` per claimed job, self-dispatch with advanced `lastCollectionId` cursor if batch was full |
+| `ProcessTenantCollectionSyncCommand(syncJobId)` | If job is `Pending`: call `start()` + save. Fetch one product page from Shopify (configurable `$productPageSize`, default 250); upsert products; call `recordPage()`; re-dispatch if `hasNextPage` |
 | `HandleWebhookCommand` | Single-product create/update: fetch + upsert; delete: remove from table |
-| `RescheduleStuckTenantsCollectionsSyncCommand` | Find Pending jobs older than injected `$stuckThresholdMinutes` (default 5); re-dispatch `StartSyncCommand` + `TenantStamp` for each |
+| `RescheduleStuckTenantsCollectionsSyncCommand` | Find Pending jobs older than injected `$stuckThresholdMinutes` (default 5); re-dispatch `ProcessTenantCollectionSyncCommand` + `TenantStamp` for each |
 
 ### Transaction Scripts
 
 Two Transaction Scripts own all `FOR UPDATE SKIP LOCKED` DB work — neither is a Messenger handler.
 
-`ActiveTenantBatchClaimer` lives in `DispatchCollectionSyncBatch/`. Accepts `ActiveTenantBatchCriteriaDto` (`lastTenantId`, `batchSize`). Runs a keyset-paginated select on `tenants` and returns `list<string>` tenant IDs.
+`ActiveTenantBatchClaimer` lives in `Application/Claim/`. Accepts `ActiveTenantBatchCriteriaDto` (`lastTenantId`, `batchSize`). Runs a keyset-paginated select on `tenants` and returns `list<string>` tenant IDs.
 
-`TenantScopedMonitoredCollectionSyncClaimer` lives in `ProcessTenantsCollectionsSync/`. Accepts `TenantCollectionSyncClaimCriteriaDto` (`tenantIds`, `lastCollectionId`, `batchSize`, `now`). Runs a keyset-paginated select on `tenant_monitored_collections` filtered to the given tenant IDs, inserts a `pending` sync row for each claimed collection in the same transaction, and returns `list<ClaimedTenantCollectionSyncDto>`.
+`TenantScopedMonitoredCollectionSyncClaimer` lives in `Application/Claim/`. Accepts `TenantCollectionSyncClaimCriteriaDto` (`tenantIds`, `lastCollectionId`, `batchSize`, `now`). Runs a keyset-paginated select on `tenant_monitored_collections` filtered to the given tenant IDs, inserts a `pending` sync row for each claimed collection in the same transaction, and returns `list<ClaimedTenantCollectionSyncDto>`.
 
 Do not add further DB logic to handlers directly — create a new Transaction Script in the relevant command namespace.
 
@@ -106,9 +105,9 @@ Do not add further DB logic to handlers directly — create a new Transaction Sc
 
 ```
 Symfony Scheduler (every 5 min)
-    → DispatchCollectionSyncBatchCommand(criteria=empty)   ← routed to async transport
+    → DispatchTenantsCollectionsSyncCommand(criteria=empty)   ← routed to async transport
 
-DispatchCollectionSyncBatchHandler  [paginated path — criteria.tenantIds is empty]
+DispatchTenantsCollectionsSyncHandler  [paginated path — criteria.tenantIds is empty]
     → ActiveTenantBatchClaimer::claim(ActiveTenantBatchCriteriaDto(lastTenantId, batchSize=100))
         BEGIN TRANSACTION
         SELECT resource_id FROM tenants
@@ -118,14 +117,14 @@ DispatchCollectionSyncBatchHandler  [paginated path — criteria.tenantIds is em
         FOR UPDATE SKIP LOCKED
         COMMIT
         → return list<string> tenantIds
-    → dispatch ProcessTenantsCollectionsSyncCommand(tenantIds)
-    → if count = 100: self-dispatch DispatchCollectionSyncBatchCommand(lastTenantId=last)
+    → dispatch AcquireTenantsCollectionsForSyncCommand(tenantIds)
+    → if count = 100: self-dispatch DispatchTenantsCollectionsSyncCommand(lastTenantId=last)
       ← repeats until batch < 100
 
-DispatchCollectionSyncBatchHandler  [targeted path — criteria.tenantIds is non-empty]
-    → dispatch ProcessTenantsCollectionsSyncCommand(criteria.tenantIds) immediately, no DB query
+DispatchTenantsCollectionsSyncHandler  [targeted path — criteria.tenantIds is non-empty]
+    → dispatch AcquireTenantsCollectionsForSyncCommand(criteria.tenantIds) immediately, no DB query
 
-ProcessTenantsCollectionsSyncHandler  [repeats until batch < batchSize]
+AcquireTenantsCollectionsForSyncHandler  [repeats until batch < batchSize]
     → TenantScopedMonitoredCollectionSyncClaimer::claim(TenantCollectionSyncClaimCriteriaDto(
           tenantIds, lastCollectionId, batchSize=100, now))
         BEGIN TRANSACTION
@@ -140,25 +139,22 @@ ProcessTenantsCollectionsSyncHandler  [repeats until batch < batchSize]
         → INSERT tenant_monitored_collections_sync (status='pending') for each row
         COMMIT
         → return list<ClaimedTenantCollectionSyncDto(syncJobId, tenantId, monitoredCollectionId)>
-    → dispatch StartSyncCommand(syncJobId) + TenantStamp per job
-    → if count = 100: self-dispatch ProcessTenantsCollectionsSyncCommand(
+    → dispatch ProcessTenantCollectionSyncCommand(syncJobId) + TenantStamp per job
+    → if count = 100: self-dispatch AcquireTenantsCollectionsForSyncCommand(
           tenantIds=same, lastCollectionId=last monitoredCollectionId)
 
-StartSyncHandler
-    → findById(syncJobId)             ← job already in Pending state
-    → sync->start()                   ← Pending → Running, raises MonitoredCollectionSyncStarted
-    → save(sync)
-    → dispatch FetchNextPageCommand(syncJobId) + TenantStamp
-
-FetchNextPageHandler  [repeated until hasNextPage = false; runs inside a DB transaction]
-    → findByIdForProcessing(syncJobId)  ← pessimistic write lock
-    → MonitoredCollectionRepository::findById(monitoredCollectionId)
-    → ProductFetcherInterface::fetchPage(ProductFilter, tenantId, cursor)
-    → ProductRepository::upsertAll(products)
-    → sync->recordPage(endCursor, hasNextPage, count, featureFlags[])
-    → save(sync)
-    → if hasNextPage: dispatch FetchNextPageCommand again
-    → if !hasNextPage: MonitoredCollectionSyncCompleted raised → Audit context listens
+ProcessTenantCollectionSyncHandler  [repeated until hasNextPage = false]
+    → findById(syncJobId)
+    → if Pending: sync->start() + save   ← Pending → Running, raises MonitoredCollectionSyncStarted
+    → wrapInTransaction:
+        → findByIdForProcessing(syncJobId)  ← pessimistic write lock
+        → MonitoredCollectionRepository::findById(monitoredCollectionId)
+        → ProductCatalogInterface::getPage(ProductFilter, tenantId, cursor, productPageSize=250)
+        → ProductRepository::upsertAll(products)
+        → sync->recordPage(endCursor, hasNextPage, count, featureFlags[])
+        → save(sync)
+        → if hasNextPage: dispatch ProcessTenantCollectionSyncCommand again + TenantStamp
+        → if !hasNextPage: MonitoredCollectionSyncCompleted raised → Audit context listens
 ```
 
 ### Webhook path
@@ -177,7 +173,7 @@ POST /webhooks/shopify/{tenantId}/products
 RescheduleStuckTenantsCollectionsSyncCommand
     → StuckCollectionSyncThresholdDto($stuckThresholdMinutes=5 injected)
     → findStuckPending(now - thresholdMinutes)
-    → dispatch StartSyncCommand(syncJobId) + TenantStamp per stuck job
+    → dispatch ProcessTenantCollectionSyncCommand(syncJobId) + TenantStamp per stuck job
 ```
 
 Protects against the failure window between the collection claimer COMMIT and RabbitMQ delivery.
@@ -193,7 +189,7 @@ Two enforcement layers:
 | Application | `TenantContextMiddleware` activates `TenantContext` (Doctrine SQL filter + `SET LOCAL app.current_tenant_id`) for every tenant-stamped Messenger message |
 | Database | PostgreSQL RLS `tenant_isolation` policy on all three tables |
 
-`DispatchCollectionSyncBatchHandler` and `RescheduleStuckTenantsCollectionsSyncHandler` carry no `TenantStamp` — they run cross-tenant as privileged processes. In production these workers connect as the `app_scheduler` PostgreSQL role (`BYPASSRLS`).
+`DispatchTenantsCollectionsSyncHandler` and `RescheduleStuckTenantsCollectionsSyncHandler` carry no `TenantStamp` — they run cross-tenant as privileged processes. In production these workers connect as the `app_scheduler` PostgreSQL role (`BYPASSRLS`).
 
 ---
 
@@ -230,7 +226,7 @@ HMAC-SHA256 validation against `SHOPIFY_WEBHOOK_SECRET` env var (`#[Autowire(env
 ```php
 #[AsSchedule('catalog_import')]
 // worker: messenger:consume scheduler_catalog_import
-RecurringMessage::every('5 minutes', new DispatchCollectionSyncBatchCommand(new DispatchCollectionSyncBatchCriteriaDto()))
+RecurringMessage::every('5 minutes', new DispatchTenantsCollectionsSyncCommand(new DispatchTenantsCollectionsSyncCriteriaDto()))
 RecurringMessage::every('2 minutes', new RescheduleStuckTenantsCollectionsSyncCommand())
 ```
 
@@ -258,6 +254,6 @@ Migration 004 — RLS policies, `app_scheduler` role with `BYPASSRLS`
 
 - `(tenantId, collectionGid)` is unique in `tenant_monitored_collections`.
 - No two schedulers can claim the same collection concurrently: `FOR UPDATE SKIP LOCKED` + in-transaction insert.
-- A `MonitoredCollectionSync` is created in `Pending` before `StartSyncCommand` is dispatched — the DB row is the source of truth, not the message queue.
+- A `MonitoredCollectionSync` is created in `Pending` before `ProcessTenantCollectionSyncCommand` is dispatched — the DB row is the source of truth, not the message queue.
 - `Product` carries no domain events and does not extend `AggregateRoot`.
 - `FeatureFlag` lives in `Shared\Domain\ValueObject` — imported by both Tenancy and CatalogSync.

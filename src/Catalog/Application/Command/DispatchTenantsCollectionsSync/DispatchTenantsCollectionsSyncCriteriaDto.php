@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Command\DispatchCollectionSyncBatch;
+namespace App\Catalog\Application\Command\DispatchTenantsCollectionsSync;
 
-final readonly class DispatchCollectionSyncBatchCriteriaDto
+final readonly class DispatchTenantsCollectionsSyncCriteriaDto
 {
     /** @param list<string> $tenantIds */
     public function __construct(

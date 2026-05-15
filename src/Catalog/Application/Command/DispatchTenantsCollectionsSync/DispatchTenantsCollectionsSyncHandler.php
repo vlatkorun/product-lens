@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Command\DispatchCollectionSyncBatch;
+namespace App\Catalog\Application\Command\DispatchTenantsCollectionsSync;
 
 use App\Catalog\Application\Claim\ActiveTenantBatchClaimerInterface;
-use App\Catalog\Application\Claim\ActiveTenantBatchCriteriaDto;
-use App\Catalog\Application\Command\ProcessTenantsCollectionsSync\ProcessTenantsCollectionsSyncCommand;
+use App\Catalog\Application\Claim\Dto\ActiveTenantBatchCriteriaDto;
+use App\Catalog\Application\Command\AcquireTenantsCollectionsForSync\AcquireTenantsCollectionsForSyncCommand;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsMessageHandler]
-final readonly class DispatchCollectionSyncBatchHandler
+final readonly class DispatchTenantsCollectionsSyncHandler
 {
     public function __construct(
         private ActiveTenantBatchClaimerInterface $claimer,
@@ -24,14 +24,14 @@ final readonly class DispatchCollectionSyncBatchHandler
     ) {
     }
 
-    public function __invoke(DispatchCollectionSyncBatchCommand $command): void
+    public function __invoke(DispatchTenantsCollectionsSyncCommand $command): void
     {
         if ($command->criteria->tenantIds !== []) {
             $this->logger->info('Dispatching targeted tenant sync', [
                 'tenant_count' => \count($command->criteria->tenantIds),
             ]);
 
-            $this->commandBus->dispatch(new ProcessTenantsCollectionsSyncCommand($command->criteria->tenantIds));
+            $this->commandBus->dispatch(new AcquireTenantsCollectionsForSyncCommand($command->criteria->tenantIds));
 
             return;
         }
@@ -47,15 +47,15 @@ final readonly class DispatchCollectionSyncBatchHandler
         $lastTenantId = $tenantIds[\count($tenantIds) - 1];
 
         $this->logger->info('Active tenant batch claimed', [
-            'count' => \count($tenantIds),
+            'count'          => \count($tenantIds),
             'last_tenant_id' => $lastTenantId,
         ]);
 
-        $this->commandBus->dispatch(new ProcessTenantsCollectionsSyncCommand($tenantIds));
+        $this->commandBus->dispatch(new AcquireTenantsCollectionsForSyncCommand($tenantIds));
 
         if (\count($tenantIds) === $this->batchSize) {
-            $this->commandBus->dispatch(new DispatchCollectionSyncBatchCommand(
-                new DispatchCollectionSyncBatchCriteriaDto(lastTenantId: $lastTenantId),
+            $this->commandBus->dispatch(new DispatchTenantsCollectionsSyncCommand(
+                new DispatchTenantsCollectionsSyncCriteriaDto(lastTenantId: $lastTenantId),
             ));
         }
     }

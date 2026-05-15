@@ -12,13 +12,17 @@ services:
         tags:
             - { name: symfony.client }
 
-    App\Catalog\Application\Command\DispatchCollectionSyncBatch\DispatchCollectionSyncBatchHandler:
+    App\Catalog\Application\Command\DispatchTenantsCollectionsSync\DispatchTenantsCollectionsSyncHandler:
         arguments:
             $batchSize: 100
 
-    App\Catalog\Application\Command\ProcessTenantsCollectionsSync\ProcessTenantsCollectionsSyncHandler:
+    App\Catalog\Application\Command\AcquireTenantsCollectionsForSync\AcquireTenantsCollectionsForSyncHandler:
         arguments:
             $batchSize: 100
+
+    App\Catalog\Application\Command\ProcessTenantCollectionSync\ProcessTenantCollectionSyncHandler:
+        arguments:
+            $productPageSize: 250
 
     App\Catalog\Application\Command\RescheduleStuckTenantsCollectionsSync\RescheduleStuckTenantsCollectionsSyncHandler:
         arguments:

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Catalog\Infrastructure\Scheduler;
 
-use App\Catalog\Application\Command\DispatchCollectionSyncBatch\DispatchCollectionSyncBatchCommand;
-use App\Catalog\Application\Command\DispatchCollectionSyncBatch\DispatchCollectionSyncBatchCriteriaDto;
+use App\Catalog\Application\Command\DispatchTenantsCollectionsSync\DispatchTenantsCollectionsSyncCommand;
+use App\Catalog\Application\Command\DispatchTenantsCollectionsSync\DispatchTenantsCollectionsSyncCriteriaDto;
 use App\Catalog\Application\Command\RescheduleStuckTenantsCollectionsSync\RescheduleStuckTenantsCollectionsSyncCommand;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
 use Symfony\Component\Scheduler\RecurringMessage;
@@ -21,7 +21,7 @@ final class CatalogImportSchedule implements ScheduleProviderInterface
     {
         return $this->schedule ??= new Schedule()
             ->with(
-                RecurringMessage::every('5 minutes', new DispatchCollectionSyncBatchCommand(new DispatchCollectionSyncBatchCriteriaDto())),
+                RecurringMessage::every('5 minutes', new DispatchTenantsCollectionsSyncCommand(new DispatchTenantsCollectionsSyncCriteriaDto())),
                 RecurringMessage::every('2 minutes', new RescheduleStuckTenantsCollectionsSyncCommand()),
             );
     }

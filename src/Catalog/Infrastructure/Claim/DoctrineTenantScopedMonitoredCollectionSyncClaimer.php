@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Catalog\Infrastructure\Claim;
 
-use App\Catalog\Application\Claim\ClaimedTenantCollectionSyncDto;
-use App\Catalog\Application\Claim\TenantCollectionSyncClaimCriteriaDto;
+use App\Catalog\Application\Claim\Dto\ClaimedTenantCollectionSyncDto;
+use App\Catalog\Application\Claim\Dto\TenantCollectionSyncClaimCriteriaDto;
 use App\Catalog\Application\Claim\TenantScopedMonitoredCollectionSyncClaimerInterface;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Uid\UuidV7;

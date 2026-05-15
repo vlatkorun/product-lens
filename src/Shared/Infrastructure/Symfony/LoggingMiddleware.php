@@ -35,10 +35,10 @@ final readonly class LoggingMiddleware implements MiddlewareInterface
             return $envelope;
         } catch (\Throwable $e) {
             $this->logger->error('Message failed', $context + [
-                'exception' => $e->getMessage(),
+                'exception'       => $e->getMessage(),
                 'exception_class' => $e::class,
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+                'file'            => $e->getFile(),
+                'line'            => $e->getLine(),
             ]);
 
             throw $e;

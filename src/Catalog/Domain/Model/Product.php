@@ -6,12 +6,11 @@ namespace App\Catalog\Domain\Model;
 
 use App\Catalog\Domain\ValueObject\ProductStatus;
 use App\Catalog\Domain\ValueObject\ShopifyGid;
-use App\Catalog\Infrastructure\Persistence\DoctrineProductRepository;
 use App\Shared\Domain\Model\TenantScopedInterface;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\UuidV7;
 
-#[ORM\Entity(repositoryClass: DoctrineProductRepository::class)]
+#[ORM\Entity]
 #[ORM\Table(name: 'products')]
 #[ORM\UniqueConstraint(name: 'products_resource_id_uq', fields: ['resourceId'])]
 #[ORM\UniqueConstraint(name: 'products_tenant_shopify_gid_uq', columns: ['tenant_id', 'shopify_gid'])]

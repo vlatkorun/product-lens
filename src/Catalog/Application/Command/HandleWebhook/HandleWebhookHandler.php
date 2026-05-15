@@ -25,14 +25,12 @@ final readonly class HandleWebhookHandler
         $tenantId = UuidV7::fromString($command->tenantId);
 
         $this->logger->info('Handling Shopify webhook', [
-            'topic' => $command->topic->value,
+            'topic'             => $command->topic->value,
             'shopify_object_id' => $command->shopifyObjectId,
-            'tenant_id' => $command->tenantId,
+            'tenant_id'         => $command->tenantId,
         ]);
 
-        if($command->topic->isFor('product')) 
-        {
-
+        if ($command->topic->isFor('product')) {
         }
     }
 }

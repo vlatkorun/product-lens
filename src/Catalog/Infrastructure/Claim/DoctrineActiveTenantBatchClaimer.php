@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Catalog\Infrastructure\Claim;
 
 use App\Catalog\Application\Claim\ActiveTenantBatchClaimerInterface;
-use App\Catalog\Application\Claim\ActiveTenantBatchCriteriaDto;
+use App\Catalog\Application\Claim\Dto\ActiveTenantBatchCriteriaDto;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Types;
 

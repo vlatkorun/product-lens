@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Command\FetchNextPage;
+namespace App\Catalog\Application\Command\ProcessTenantCollectionSync;
 
 use App\Catalog\Domain\Repository\MonitoredCollectionRepositoryInterface;
 use App\Catalog\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
-use App\Catalog\Domain\Repository\ProductRepositoryInterface;
 use App\Catalog\Domain\Service\ProductCatalogInterface;
 use App\Catalog\Domain\ValueObject\ProductFilter;
+use App\Catalog\Domain\ValueObject\SyncStatus;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -18,23 +18,38 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\UuidV7;
 
 #[AsMessageHandler]
-final readonly class FetchNextPageHandler
+final readonly class ProcessTenantCollectionSyncHandler
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
         private MonitoredCollectionSyncRepositoryInterface $syncJobRepository,
         private MonitoredCollectionRepositoryInterface $collectionRepository,
-        private ProductCatalogInterface $productFetcher,
-        private ProductRepositoryInterface $productRepository,
+        private ProductCatalogInterface $productCatalog,
         private MessageBusInterface $commandBus,
+        private int $productPageSize,
         #[Autowire(service: 'monolog.logger.catalog_import')]
         private LoggerInterface $logger,
     ) {
     }
 
-    public function __invoke(FetchNextPageCommand $command): void
+    public function __invoke(ProcessTenantCollectionSyncCommand $command): void
     {
         $syncJobId = UuidV7::fromString($command->syncJobId);
+
+        $job = $this->syncJobRepository->findById($syncJobId);
+
+        if ($job === null) {
+            $this->logger->warning('Sync job not found, skipping', ['sync_job_id' => $command->syncJobId]);
+
+            return;
+        }
+
+        if ($job->status() === SyncStatus::Pending) {
+            $job->start();
+            $this->syncJobRepository->save($job);
+
+            $this->logger->info('Sync job started', ['sync_job_id' => $command->syncJobId]);
+        }
 
         $this->entityManager->wrapInTransaction(function () use ($syncJobId, $command): void {
             $job = $this->syncJobRepository->findByIdForProcessing($syncJobId);
@@ -51,20 +66,21 @@ final readonly class FetchNextPageHandler
 
             if ($collection === null) {
                 $this->logger->warning('Monitored collection not found', [
-                    'sync_job_id' => $command->syncJobId,
+                    'sync_job_id'             => $command->syncJobId,
                     'monitored_collection_id' => $job->monitoredCollectionId()->toRfc4122(),
                 ]);
 
                 return;
             }
 
-            $page = $this->productFetcher->getPage(
+            $page = $this->productCatalog->getPage(
                 new ProductFilter($job->collectionGid()),
                 $job->tenantId(),
                 $job->cursor(),
+                $this->productPageSize,
             );
 
-            $this->productRepository->upsertAll($page->products);
+            // Dispatch the product audit job here
 
             $job->recordPage(
                 $page->cursor->endCursor,
@@ -76,14 +92,14 @@ final readonly class FetchNextPageHandler
             $this->syncJobRepository->save($job);
 
             $this->logger->debug('Product page fetched', [
-                'sync_job_id' => $command->syncJobId,
+                'sync_job_id'   => $command->syncJobId,
                 'product_count' => \count($page->products),
                 'has_next_page' => $page->cursor->hasNextPage,
             ]);
 
             if ($page->cursor->hasNextPage) {
                 $this->commandBus->dispatch(
-                    new FetchNextPageCommand($command->syncJobId),
+                    new ProcessTenantCollectionSyncCommand($command->syncJobId),
                     [new TenantStamp($job->tenantId())],
                 );
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Catalog\Application\Command\RescheduleStuckTenantsCollectionsSync;
 
-use App\Catalog\Application\Command\StartSync\StartSyncCommand;
+use App\Catalog\Application\Command\ProcessTenantCollectionSync\ProcessTenantCollectionSyncCommand;
 use App\Catalog\Domain\Repository\MonitoredCollectionSyncRepositoryInterface;
 use App\Shared\Infrastructure\Symfony\TenantStamp;
 use Psr\Log\LoggerInterface;
@@ -41,13 +41,13 @@ final readonly class RescheduleStuckTenantsCollectionsSyncHandler
         }
 
         $this->logger->warning('Rescheduling stuck sync jobs', [
-            'count' => \count($stuckJobs),
+            'count'             => \count($stuckJobs),
             'threshold_minutes' => $threshold->thresholdMinutes,
         ]);
 
         foreach ($stuckJobs as $job) {
             $this->commandBus->dispatch(
-                new StartSyncCommand($job->id()->toRfc4122()),
+                new ProcessTenantCollectionSyncCommand($job->id()->toRfc4122()),
                 [new TenantStamp($job->tenantId())],
             );
         }

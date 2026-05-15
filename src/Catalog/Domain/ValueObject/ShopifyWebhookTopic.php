@@ -12,6 +12,6 @@ enum ShopifyWebhookTopic: string
 
     public function isFor(string $prefix): bool
     {
-        return \str_starts_with($this->value, $prefix.'/');
+        return \str_starts_with($this->value, $prefix . '/');
     }
 }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Claim;
+namespace App\Catalog\Application\Claim\Dto;
 
 final readonly class TenantCollectionSyncClaimCriteriaDto
 {
