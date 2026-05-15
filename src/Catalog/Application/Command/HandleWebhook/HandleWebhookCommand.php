@@ -12,6 +12,7 @@ final readonly class HandleWebhookCommand
         public string $tenantId,
         public string $shopifyObjectId,
         public ShopifyWebhookTopic $topic,
+        public array $payload,
     ) {
     }
 }

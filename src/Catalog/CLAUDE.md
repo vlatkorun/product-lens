@@ -53,9 +53,9 @@ recordPage(endCursor, hasNextPage, count, featureFlags[])     → raises Monitor
 fail(reason, at)                                              → raises MonitoredCollectionSyncFailed
 ```
 
-**`Product`** — table `products`
+**`Product`** — not persisted (pending)
 
-Read model snapshot of a Shopify product. Not an aggregate — no domain events. Upserted on every sync, keyed on `(tenantId, shopifyGid)`. Latest sync always wins.
+In-memory representation of a fetched Shopify product. Not an aggregate — no domain events. Currently only used as a transient value within `ProductPage` during a sync; persistence to a `products` table is not yet implemented.
 
 ### Domain events
 
@@ -81,8 +81,8 @@ Read model snapshot of a Shopify product. Not an aggregate — no domain events.
 | `ConfigureMonitoredCollectionCommand` | Upsert `MonitoredCollection` by `(tenantId, collectionGid)`; idempotent |
 | `DispatchTenantsCollectionsSyncCommand(criteria)` | **Targeted path** (`criteria.tenantIds` non-empty): dispatch `AcquireTenantsCollectionsForSyncCommand` immediately. **Paginated path** (`criteria.tenantIds` empty): call `ActiveTenantBatchClaimer` to claim up to 100 active tenants via keyset pagination, dispatch `AcquireTenantsCollectionsForSyncCommand` per batch, self-dispatch with advanced `lastTenantId` cursor until batch < 100 |
 | `AcquireTenantsCollectionsForSyncCommand(tenantIds, lastCollectionId)` | Call `TenantScopedMonitoredCollectionSyncClaimer` to claim up to 100 eligible collections for the given tenants, dispatch `ProcessTenantCollectionSyncCommand` + `TenantStamp` per claimed job, self-dispatch with advanced `lastCollectionId` cursor if batch was full |
-| `ProcessTenantCollectionSyncCommand(syncJobId)` | If job is `Pending`: call `start()` + save. Fetch one product page from Shopify (configurable `$productPageSize`, default 250); upsert products; call `recordPage()`; re-dispatch if `hasNextPage` |
-| `HandleWebhookCommand` | Single-product create/update: fetch + upsert; delete: remove from table |
+| `ProcessTenantCollectionSyncCommand(syncJobId)` | If job is `Pending`: call `start()` + save. Fetch one product page from Shopify (configurable `$productPageSize`, default 250); call `recordPage()`; re-dispatch if `hasNextPage` |
+| `HandleWebhookCommand` | Receives Shopify product webhook — stub, not yet implemented |
 | `RescheduleStuckTenantsCollectionsSyncCommand` | Find Pending jobs older than injected `$stuckThresholdMinutes` (default 5); re-dispatch `ProcessTenantCollectionSyncCommand` + `TenantStamp` for each |
 
 ### Transaction Scripts
@@ -150,7 +150,6 @@ ProcessTenantCollectionSyncHandler  [repeated until hasNextPage = false]
         → findByIdForProcessing(syncJobId)  ← pessimistic write lock
         → MonitoredCollectionRepository::findById(monitoredCollectionId)
         → ProductCatalogInterface::getPage(ProductFilter, tenantId, cursor, productPageSize=250)
-        → ProductRepository::upsertAll(products)
         → sync->recordPage(endCursor, hasNextPage, count, featureFlags[])
         → save(sync)
         → if hasNextPage: dispatch ProcessTenantCollectionSyncCommand again + TenantStamp
@@ -163,8 +162,7 @@ ProcessTenantCollectionSyncHandler  [repeated until hasNextPage = false]
 POST /webhooks/shopify/{tenantId}/products
     → ShopifyWebhookValidator::validate() (HMAC-SHA256)
     → HandleWebhookCommand(tenantId, gid, topic)
-        products/create | products/update → fetchByGid → upsert
-        products/delete                  → remove(gid, tenantId)
+        [not yet implemented]
 ```
 
 ### Reaper (every 2 min)
@@ -234,13 +232,12 @@ RecurringMessage::every('2 minutes', new RescheduleStuckTenantsCollectionsSyncCo
 
 - `DoctrineMonitoredCollectionRepository` — standard ORM save + event publish
 - `DoctrineMonitoredCollectionSyncRepository` — standard ORM save + event publish; `findStuckPending()` via DQL
-- `DoctrineProductRepository` — raw DBAL upsert (`INSERT ... ON CONFLICT DO UPDATE`)
 
 ---
 
 ## Database
 
-Tables: `tenant_monitored_collections`, `tenant_monitored_collections_sync`, `products`
+Tables: `tenant_monitored_collections`, `tenant_monitored_collections_sync`
 
 Migration 003 — tables, enums (`sync_status`, `product_status`), indexes including partial indexes:
 - `tenant_monitored_collections_enabled_idx` — `(tenant_id) WHERE enabled = true`
@@ -255,5 +252,5 @@ Migration 004 — RLS policies, `app_scheduler` role with `BYPASSRLS`
 - `(tenantId, collectionGid)` is unique in `tenant_monitored_collections`.
 - No two schedulers can claim the same collection concurrently: `FOR UPDATE SKIP LOCKED` + in-transaction insert.
 - A `MonitoredCollectionSync` is created in `Pending` before `ProcessTenantCollectionSyncCommand` is dispatched — the DB row is the source of truth, not the message queue.
-- `Product` carries no domain events and does not extend `AggregateRoot`.
+- `Product` carries no domain events and does not extend `AggregateRoot`. It is not persisted — it exists only as a transient value during a sync page fetch.
 - `FeatureFlag` lives in `Shared\Domain\ValueObject` — imported by both Tenancy and CatalogSync.

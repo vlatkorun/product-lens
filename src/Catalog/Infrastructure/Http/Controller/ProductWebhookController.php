@@ -31,7 +31,7 @@ final readonly class ProductWebhookController
         $payload = \json_decode((string) $request->getContent(), true, 512, \JSON_THROW_ON_ERROR);
         $shopifyObjectId = ShopifyGid::product($payload['id'])->value;
 
-        $this->commandBus->dispatch(new HandleWebhookCommand($tenantId, $shopifyObjectId, $topic));
+        $this->commandBus->dispatch(new HandleWebhookCommand($tenantId, $shopifyObjectId, $topic, $payload));
 
         return new JsonResponse(null, Response::HTTP_OK);
     }
