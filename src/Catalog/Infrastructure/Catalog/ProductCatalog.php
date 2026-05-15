@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Catalog\Infrastructure\Shopify;
 
 use App\Catalog\Domain\Model\Product;
-use App\Catalog\Domain\Service\ProductFetcherInterface;
+use App\Catalog\Domain\Service\ProductCatalogInterface;
 use App\Catalog\Domain\ValueObject\ProductFilter;
 use App\Catalog\Domain\ValueObject\ProductPage;
 use App\Catalog\Domain\ValueObject\ProductStatus;
@@ -21,7 +21,7 @@ use App\Catalog\Infrastructure\Shopify\GraphQL\ProductsByCollectionQuery;
 use App\Tenancy\Domain\Repository\TenantRepositoryInterface;
 use Symfony\Component\Uid\UuidV7;
 
-final readonly class ShopifyProductFetcher implements ProductFetcherInterface
+final readonly class ProductCatalog implements ProductCatalogInterface
 {
     public function __construct(
         private ShopifyClient $shopifyClient,

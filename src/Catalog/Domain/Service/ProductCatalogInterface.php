@@ -11,11 +11,11 @@ use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Catalog\Domain\ValueObject\SyncCursor;
 use Symfony\Component\Uid\UuidV7;
 
-interface ProductFetcherInterface
+interface ProductCatalogInterface
 {
-    public function fetchByGid(ShopifyGid $gid, UuidV7 $tenantId): Product;
+    public function getByGid(ShopifyGid $gid, UuidV7 $tenantId): Product;
 
-    public function fetchPage(
+    public function getPage(
         ProductFilter $filter,
         UuidV7 $tenantId,
         ?SyncCursor $after = null,
