@@ -8,7 +8,7 @@ use App\Catalog\Domain\Model\MonitoredCollection;
 use App\Catalog\Domain\Repository\MonitoredCollectionRepositoryInterface;
 use App\Catalog\Domain\ValueObject\MonitoredCollectionConfig;
 use App\Catalog\Domain\ValueObject\ShopifyGid;
-use App\Shared\Domain\ValueObject\FeatureFlag;
+use App\Shared\Domain\ValueObject\AuditCheck;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\UuidV7;
 
@@ -26,9 +26,9 @@ final readonly class ConfigureMonitoredCollectionHandler
         $collectionGid = ShopifyGid::fromString($command->collectionGid);
         $config = new MonitoredCollectionConfig(
             perPage: $command->perPage,
-            featureFlags: \array_map(
-                static fn (string $v): FeatureFlag => FeatureFlag::from($v),
-                $command->featureFlags,
+            auditChecks: \array_map(
+                static fn (string $v): AuditCheck => AuditCheck::from($v),
+                $command->auditChecks,
             ),
             priority: $command->priority,
         );

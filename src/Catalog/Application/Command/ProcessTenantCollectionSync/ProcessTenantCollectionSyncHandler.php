@@ -86,7 +86,7 @@ final readonly class ProcessTenantCollectionSyncHandler
                 $page->cursor->endCursor,
                 $page->cursor->hasNextPage,
                 \count($page->products),
-                $collection->featureFlags(),
+                $collection->auditChecks(),
             );
 
             $this->syncJobRepository->save($job);

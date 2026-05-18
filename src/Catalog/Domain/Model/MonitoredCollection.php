@@ -11,7 +11,7 @@ use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Catalog\Infrastructure\Persistence\DoctrineMonitoredCollectionRepository;
 use App\Shared\Domain\Model\AggregateRoot;
 use App\Shared\Domain\Model\TenantScopedInterface;
-use App\Shared\Domain\ValueObject\FeatureFlag;
+use App\Shared\Domain\ValueObject\AuditCheck;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\UuidV7;
 
@@ -134,8 +134,8 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
     {
         $this->config = new MonitoredCollectionConfig(
             perPage: $this->configRaw['per_page'],
-            featureFlags: \array_values(\array_map(
-                static fn (string $v): FeatureFlag => FeatureFlag::from($v),
+            auditChecks: \array_values(\array_map(
+                static fn (string $v): AuditCheck => AuditCheck::from($v),
                 $this->configRaw['feature_flags'],
             )),
             priority: $this->configRaw['priority'],
@@ -180,10 +180,10 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
         return $this->config;
     }
 
-    /** @return list<FeatureFlag> */
-    public function featureFlags(): array
+    /** @return list<AuditCheck> */
+    public function auditChecks(): array
     {
-        return $this->config->featureFlags;
+        return $this->config->auditChecks;
     }
 
     public function isEnabled(): bool
@@ -206,8 +206,8 @@ class MonitoredCollection extends AggregateRoot implements TenantScopedInterface
         $this->configRaw = [
             'per_page'      => $this->config->perPage,
             'feature_flags' => \array_map(
-                static fn (FeatureFlag $f): string => $f->value,
-                $this->config->featureFlags,
+                static fn (AuditCheck $f): string => $f->value,
+                $this->config->auditChecks,
             ),
             'priority' => $this->config->priority,
         ];

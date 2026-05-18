@@ -17,12 +17,12 @@ final class AuditPipelineResolver implements AuditPipelineResolverInterface
     ) {
     }
 
-    public function resolve(array $featureFlags): array
+    public function resolve(array $auditChecks): array
     {
         $resolved = [];
         foreach ($this->pipelines as $pipeline) {
             $required = $pipeline->requiredFeatureFlag();
-            if ($required === null || \in_array($required, $featureFlags, true)) {
+            if ($required === null || \in_array($required, $auditChecks, true)) {
                 $resolved[] = $pipeline;
             }
         }

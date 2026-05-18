@@ -36,7 +36,7 @@ final readonly class RunAuditHandler
             ),
         );
 
-        $pipelines = $this->pipelineResolver->resolve($command->featureFlags);
+        $pipelines = $this->pipelineResolver->resolve($command->auditChecks);
         $this->orchestrator->orchestrate($product, $pipelines);
     }
 }

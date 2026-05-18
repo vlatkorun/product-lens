@@ -15,7 +15,7 @@ use App\Catalog\Domain\ValueObject\SyncStatus;
 use App\Catalog\Infrastructure\Persistence\DoctrineMonitoredCollectionSyncRepository;
 use App\Shared\Domain\Model\AggregateRoot;
 use App\Shared\Domain\Model\TenantScopedInterface;
-use App\Shared\Domain\ValueObject\FeatureFlag;
+use App\Shared\Domain\ValueObject\AuditCheck;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\UuidV7;
 
@@ -112,8 +112,8 @@ class MonitoredCollectionSync extends AggregateRoot implements TenantScopedInter
         ));
     }
 
-    /** @param list<FeatureFlag> $featureFlags */
-    public function recordPage(?string $endCursor, bool $hasNextPage, int $count, array $featureFlags): void
+    /** @param list<AuditCheck> $auditChecks */
+    public function recordPage(?string $endCursor, bool $hasNextPage, int $count, array $auditChecks): void
     {
         if ($this->status !== SyncStatus::Running) {
             $this->raise(new MonitoredCollectionSyncPageSkipped(
@@ -146,7 +146,7 @@ class MonitoredCollectionSync extends AggregateRoot implements TenantScopedInter
                 $this->resourceId->toRfc4122(),
                 $this->tenantId->toRfc4122(),
                 $this->collectionGidRaw,
-                $featureFlags,
+                $auditChecks,
                 $now,
             ));
         }

@@ -9,7 +9,7 @@ use App\Audit\Domain\Pipeline\AuditPipelineResult;
 use App\Audit\Domain\Specification\ProductSpecificationInterface;
 use App\Audit\Domain\ValueObject\AuditableObject;
 use App\Audit\Domain\ValueObject\AuditableProduct;
-use App\Shared\Domain\ValueObject\FeatureFlag;
+use App\Shared\Domain\ValueObject\AuditCheck;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
@@ -28,9 +28,9 @@ final class AIImageAuditPipeline implements AuditPipelineInterface
         return 'ai_image_audit';
     }
 
-    public function requiredFeatureFlag(): FeatureFlag
+    public function requiredFeatureFlag(): AuditCheck
     {
-        return FeatureFlag::AiImageAudit;
+        return AuditCheck::AiImageAudit;
     }
 
     public function run(AuditableObject $subject): AuditPipelineResult
