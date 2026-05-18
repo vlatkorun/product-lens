@@ -53,10 +53,10 @@ provider or inline construction suffices.
   inside a context's own test file — cross-context event flow (e.g. `MonitoredCollectionSyncCompleted`
   triggering `RunAuditCommand`) belongs in `tests/Integration/`.
 - **Use data providers** for value object validation (e.g. shop domain format rules,
-  `FeatureFlag` enum mapping, `UserRole` hierarchy) — there are many input
+  `AuditCheck` enum mapping, `UserRole` hierarchy) — there are many input
   combinations to cover exhaustively.
 - **Aggregate invariants** must each have a dedicated test: double-enable of a
-  `FeatureFlag`, reinstall of an `Uninstalled` tenant, role/scope mismatch on
+  `AuditCheck`, reinstall of an `Uninstalled` tenant, role/scope mismatch on
   `User::create()` vs `User::createForTenant()`, idempotent `grantTenantAccess()`.
 
 Run tests via Make:
@@ -70,8 +70,8 @@ make test-integration  # integration tests only
 
 ProductLens is a multitenant Shopify product audit platform. It periodically fetches
 products from Shopify collections (or on webhook events), and audits each product
-against the feature flags enabled for the tenant — such as image audit or AI image
-audit. Each feature flag maps to a defined audit specification. Reports surface
+against the audit checks enabled for the tenant — such as image audit or AI image
+audit. Each audit check maps to a defined audit specification. Reports surface
 non-conforming products so merchandising teams can act on them quickly.
 
 Origin use case: Co-Op Superstores needed a way to detect products without images
@@ -104,16 +104,16 @@ The only shared primitives live in `Shared/Domain/`.
 
 ```
 Identity       — user lifecycle, roles, tenant membership, authentication
-Tenancy        — tenant lifecycle, feature flags, Shopify OAuth
+Tenancy        — tenant lifecycle, audit checks, Shopify OAuth
 CatalogSync    — product fetching, cursor tracking, webhook ingestion
-Audit          — pipeline-and-specification audit engine, per-tenant feature-flag gated
+Audit          — pipeline-and-specification audit engine, per-tenant audit-check gated
 ```
 
 **Identity** owns all authentication and authorisation concerns. It references
 tenants by UUID only — no import of `Tenancy` domain classes.
 
 **Tenancy** is a read-dependency for `CatalogSync` and `Audit`. It exposes
-`TenantId` (shared) and `FeatureFlagResolver` (domain service). No other context
+`TenantId` (shared) and `AuditCheckResolver` (domain service). No other context
 writes to Tenancy.
 
 **CatalogSync → Audit** is the main flow. When a sync job completes (or a
@@ -131,6 +131,7 @@ src/
 │   │   ├── Model/AggregateRoot.php              ← base class: raise(), pullDomainEvents()
 │   │   ├── Event/DomainEvent.php                ← marker interface (sync dispatch)
 │   │   ├── Event/AsyncDomainEvent.php           ← marker interface (async dispatch via Messenger)
+│   │   ├── ValueObject/AuditCheck.php           ← backed enum: ImageAudit, AiImageAudit
 │   │   ├── ValueObject/TenantId.php             ← planned
 │   │   └── Clock/ClockInterface.php             ← planned
 │   └── Infrastructure/
@@ -160,7 +161,6 @@ src/
 ├── Tenancy/
 │   ├── Domain/
 │   │   ├── Model/Tenant.php                     ← aggregate root
-│   │   ├── ValueObject/FeatureFlag.php           ← backed enum: ImageAudit, AiImageAudit
 │   │   ├── ValueObject/TenantStatus.php          ← backed enum: Active, Suspended, Uninstalled
 │   │   ├── ValueObject/ShopifyTokenResult.php    ← access_token + scope from OAuth token exchange
 │   │   ├── Repository/TenantRepositoryInterface.php
@@ -170,8 +170,8 @@ src/
 │   │   ├── Service/OAuth/OAuthStateStoreInterface.php
 │   │   ├── Service/OAuth/ShopifyOAuthClientInterface.php
 │   │   ├── Service/OAuth/ShopifyHmacValidatorInterface.php
-│   │   ├── Service/FeatureFlagResolver.php       ← planned
-│   │   ├── Exception/FeatureAlreadyEnabledException.php
+│   │   ├── Service/AuditCheckResolver.php        ← planned
+│   │   ├── Exception/AuditCheckEnabledException.php
 │   │   ├── Exception/InvalidOAuthCallbackException.php
 │   │   └── Exception/TenantNotFoundException.php  ← planned
 │   ├── Application/
@@ -226,7 +226,7 @@ src/
     └── Infrastructure/
         ├── Pipeline/{ImageAuditPipeline,AIImageAuditPipeline}.php   ← tagged: app.audit_pipeline
         ├── Specification/Image/{ImageExists,ImageUrlReachable,ImageDimensions}Specification.php
-        ├── AuditPipelineResolver.php             ← filters by FeatureFlag via AutowireIterator
+        ├── AuditPipelineResolver.php             ← filters by AuditCheck via AutowireIterator
         └── AuditOrchestrator.php                 ← stateless; takes pipelines as parameter
 ```
 
@@ -243,11 +243,11 @@ src/
   dispatched transactionally.
 - **Value objects are immutable.** Mutation returns a new instance. `SyncCursor`
   is replaced wholesale on each page (`MonitoredCollectionSync::recordPage()`), never mutated.
-- **`FeatureFlag`** is a backed enum (`string`). Current cases: `ImageAudit`,
+- **`AuditCheck`** is a backed enum (`string`). Current cases: `ImageAudit`,
   `AiImageAudit`. Stored as a JSONB array on the `Tenant` record. Serialized via
   Doctrine lifecycle hooks (`PostLoad` / `PrePersist` / `PreUpdate`) — the mapped
-  property `$featureFlagsRaw` holds `string[]`; the transient `$featureFlags` holds
-  `FeatureFlag[]` and is the one used in domain logic.
+  property `$auditChecksRaw` holds `string[]`; the transient `$auditChecks` holds
+  `AuditCheck[]` and is the one used in domain logic.
 
 ### IDs
 
@@ -314,7 +314,7 @@ resumes a `MonitoredCollectionSync` for the affected collection.
 
 ### Audit: pipeline-and-specification engine
 
-Each audit run passes an `AuditableProduct` through a resolved set of `AuditPipelineInterface` implementations. Pipelines declare a `requiredFeatureFlag()` — `AuditPipelineResolver` filters them against the tenant's active flags before the orchestrator runs them. Each pipeline holds a prioritised set of `SpecificationInterface` implementations injected via `#[AutowireIterator]`. See @src/Audit/CLAUDE.md for the full model and extension points.
+Each audit run passes an `AuditableProduct` through a resolved set of `AuditPipelineInterface` implementations. Pipelines declare a `requiredFeatureFlag()` — `AuditPipelineResolver` filters them against the tenant's active audit checks before the orchestrator runs them. Each pipeline holds a prioritised set of `SpecificationInterface` implementations injected via `#[AutowireIterator]`. See @src/Audit/CLAUDE.md for the full model and extension points.
 
 ### Shopify OAuth flow
 
@@ -416,8 +416,8 @@ each incoming request (via `X-Shopify-Shop-Domain` header or JWT claim) and stor
 it in a request-scoped service. Command and query handlers that need multi-tenant
 scoping declare this service as a constructor dependency. No static globals.
 
-`FeatureFlagResolver` accepts an optional `$systemWideFlags` array injected from
-config — flags set here are enabled for all tenants without touching the database.
+`AuditCheckResolver` accepts an optional `$systemWideChecks` array injected from
+config — checks set here are enabled for all tenants without touching the database.
 
 ### DTOs
 
@@ -463,13 +463,13 @@ every repository and handler.
 
 - A `Tenant`'s `shopDomain` must end with `.myshopify.com`. Enforced in
   `Tenant::create()`.
-- Enabling an already-enabled `FeatureFlag` throws `FeatureAlreadyEnabledException`.
-  Disabling an absent flag is a no-op (idempotent).
+- Enabling an already-enabled `AuditCheck` throws `AuditCheckEnabledException`.
+  Disabling an absent check is a no-op (idempotent).
 - `AuditFinding` is append-only. Once recorded on an `AuditReport`, findings are
   never mutated or deleted — only new findings can be appended.
 - A `MonitoredCollectionSync` in `RUNNING` status cannot be started again. Starting a new sync for
   a collection while one is running should resume the existing job via its cursor.
-- The AI audit step only runs if `FeatureFlag::AI_IMAGE_AUDIT` is enabled for the
+- The AI audit step only runs if `AuditCheck::AiImageAudit` is enabled for the
   tenant. This is enforced at the application layer, not the domain layer.
 - `User::create()` rejects tenant-scoped roles (`TenantAdmin`, `Tenant`); use
   `User::createForTenant()` instead. The reverse guard applies symmetrically.
@@ -502,7 +502,7 @@ every repository and handler.
                               │
                         RunAuditCommand dispatched (listener not yet built)
                               │
-                        AuditPipelineResolver::resolve(featureFlags)
+                        AuditPipelineResolver::resolve(auditChecks)
                               │ (filters to enabled pipelines)
                         AuditOrchestrator::orchestrate(product, pipelines)
                               │ (per enabled pipeline)
@@ -526,7 +526,7 @@ every repository and handler.
 
 **Tenancy**
 - Application layer: `CreateTenant` command/handler, `GetTenant` query/handler
-- Infrastructure: `TenantContextMiddleware`, `FeatureFlagResolver`
+- Infrastructure: `TenantContextMiddleware`, `AuditCheckResolver`
 - Post-OAuth shop metadata fetch (populate `name`, `email`, `currencyCode`, etc. via
   Shopify Admin API after `CompleteOAuth` succeeds)
 - Tenant runtime isolation: Doctrine SQL filter + PostgreSQL Row Level Security
@@ -538,7 +538,7 @@ every repository and handler.
 **Audit** — `AuditReport` aggregate + persistence; event listener on `MonitoredCollectionSyncCompleted`; AI image specifications; `AuditCompleted` event; query layer. See @src/Audit/CLAUDE.md.
 
 **General**
-- Shopify App UI (React / App Bridge) for toggling feature flags per tenant
+- Shopify App UI (React / App Bridge) for toggling audit checks per tenant
 - Report export (CSV / PDF)
 - Notification layer (email / Slack when audit finds issues)
 - Retry / dead-letter handling for failed sync jobs

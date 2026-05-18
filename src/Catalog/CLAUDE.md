@@ -35,10 +35,10 @@ Fetches Shopify products into the platform so ImageAudit can act on them. Tenant
 Configuration aggregate. Owns what to sync and which audit features to run on a collection's products. Unique per `(tenantId, collectionGid)`.
 
 ```
-create(tenantId, collectionGid, name, FeatureFlag[], enabled, now) → raises CollectionMonitoringEnabled if enabled
+create(tenantId, collectionGid, name, AuditCheck[], enabled, now) → raises CollectionMonitoringEnabled if enabled
 enable()       → raises CollectionMonitoringEnabled (idempotent)
 disable()      → raises CollectionMonitoringDisabled (idempotent)
-updateFeatureFlags(FeatureFlag[])
+updateAuditChecks(AuditCheck[])
 rename(string)
 ```
 
@@ -49,7 +49,7 @@ One full sync execution for a monitored collection. Created in `Pending` state b
 ```
 schedule(tenantId, monitoredCollectionId, collectionGid, now) → status=Pending, no events
 start()                                                       → Pending→Running, raises MonitoredCollectionSyncStarted
-recordPage(endCursor, hasNextPage, count, featureFlags[])     → raises MonitoredCollectionSyncProcessed; if !hasNextPage: Completed + MonitoredCollectionSyncCompleted
+recordPage(endCursor, hasNextPage, count, auditChecks[])      → raises MonitoredCollectionSyncProcessed; if !hasNextPage: Completed + MonitoredCollectionSyncCompleted
 fail(reason, at)                                              → raises MonitoredCollectionSyncFailed
 ```
 
@@ -65,7 +65,7 @@ In-memory representation of a fetched Shopify product. Not an aggregate — no d
 | `CollectionMonitoringDisabled` | sync | `MonitoredCollection::disable()` |
 | `MonitoredCollectionSyncStarted` | async | `MonitoredCollectionSync::start()` |
 | `MonitoredCollectionSyncProcessed` | async | `MonitoredCollectionSync::recordPage()` on each page |
-| `MonitoredCollectionSyncCompleted` | async | `MonitoredCollectionSync::recordPage()` on last page — carries `tenantId`, `collectionGid`, `featureFlags[]` |
+| `MonitoredCollectionSyncCompleted` | async | `MonitoredCollectionSync::recordPage()` on last page — carries `tenantId`, `collectionGid`, `auditChecks[]` |
 | `MonitoredCollectionSyncFailed` | async | `MonitoredCollectionSync::fail()` |
 
 `MonitoredCollectionSyncCompleted` gives ImageAudit everything it needs without querying CatalogSync tables.
@@ -150,7 +150,7 @@ ProcessTenantCollectionSyncHandler  [repeated until hasNextPage = false]
         → findByIdForProcessing(syncJobId)  ← pessimistic write lock
         → MonitoredCollectionRepository::findById(monitoredCollectionId)
         → ProductCatalogInterface::getPage(ProductFilter, tenantId, cursor, productPageSize=250)
-        → sync->recordPage(endCursor, hasNextPage, count, featureFlags[])
+        → sync->recordPage(endCursor, hasNextPage, count, auditChecks[])
         → save(sync)
         → if hasNextPage: dispatch ProcessTenantCollectionSyncCommand again + TenantStamp
         → if !hasNextPage: MonitoredCollectionSyncCompleted raised → Audit context listens
@@ -253,4 +253,4 @@ Migration 004 — RLS policies, `app_scheduler` role with `BYPASSRLS`
 - No two schedulers can claim the same collection concurrently: `FOR UPDATE SKIP LOCKED` + in-transaction insert.
 - A `MonitoredCollectionSync` is created in `Pending` before `ProcessTenantCollectionSyncCommand` is dispatched — the DB row is the source of truth, not the message queue.
 - `Product` carries no domain events and does not extend `AggregateRoot`. It is not persisted — it exists only as a transient value during a sync page fetch.
-- `FeatureFlag` lives in `Shared\Domain\ValueObject` — imported by both Tenancy and CatalogSync.
+- `AuditCheck` lives in `Shared\Domain\ValueObject` — imported by both Tenancy and CatalogSync.

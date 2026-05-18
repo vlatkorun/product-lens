@@ -1,12 +1,12 @@
 # Audit — Context
 
-Audits products fetched by CatalogSync against a configurable set of rules. Each audit run is driven by a `RunAuditCommand` carrying the product data and the tenant's active feature flags. Results flow through a pipeline-and-specification model: each enabled pipeline runs its specifications in priority order and collects `SpecificationResult` objects. Persistence to an `AuditReport` aggregate is not yet implemented.
+Audits products fetched by CatalogSync against a configurable set of rules. Each audit run is driven by a `RunAuditCommand` carrying the product data and the tenant's active audit checks. Results flow through a pipeline-and-specification model: each enabled pipeline runs its specifications in priority order and collects `SpecificationResult` objects. Persistence to an `AuditReport` aggregate is not yet implemented.
 
 ---
 
 ## Bounded context rules
 
-- Imports from `Shared\Domain\` are allowed (`FeatureFlag`, `UuidV7`).
+- Imports from `Shared\Domain\` are allowed (`AuditCheck`, `UuidV7`).
 - Never import from `CatalogSync`, `Tenancy`, `Identity`, or any other bounded context's domain classes.
 - `AuditableProduct` is Audit's own view of a product — never inject or reference `CatalogSync\Domain\Model\Product` directly.
 - Cross-context communication is inbound only: `MonitoredCollectionSyncCompleted` (async event from CatalogSync) triggers dispatch of `RunAuditCommand`.
@@ -35,14 +35,14 @@ Audits products fetched by CatalogSync against a configurable set of rules. Each
 
 | Class | Purpose |
 |---|---|
-| `AuditPipelineInterface` | `name(): string`, `requiredFeatureFlag(): ?FeatureFlag`, `run(AuditableProduct): AuditPipelineResult` |
+| `AuditPipelineInterface` | `name(): string`, `requiredFeatureFlag(): ?AuditCheck`, `run(AuditableProduct): AuditPipelineResult` |
 | `AuditPipelineResult` | Wraps `pipelineName` + `list<SpecificationResult>`; exposes `passed()` and `failures()` |
 
 ### Domain services (`Domain/Service/`)
 
 | Interface | Purpose |
 |---|---|
-| `AuditPipelineResolverInterface` | `resolve(list<FeatureFlag>): list<AuditPipelineInterface>` — filters all registered pipelines to those whose `requiredFeatureFlag` is in the provided list (or `null`) |
+| `AuditPipelineResolverInterface` | `resolve(list<AuditCheck>): list<AuditPipelineInterface>` — filters all registered pipelines to those whose `requiredFeatureFlag` is in the provided list (or `null`) |
 | `AuditOrchestratorInterface` | `orchestrate(AuditableProduct, list<AuditPipelineInterface>): list<AuditPipelineResult>` — runs each pipeline and collects results |
 
 ---
@@ -50,13 +50,13 @@ Audits products fetched by CatalogSync against a configurable set of rules. Each
 ## Key flow
 
 ```
-RunAuditCommand (productId, tenantId, productTitle, images[], featureFlags[])
+RunAuditCommand (productId, tenantId, productTitle, images[], auditChecks[])
     │
 RunAuditHandler
     ├── builds AuditableProduct from command data
-    ├── AuditPipelineResolver::resolve(featureFlags) → list<AuditPipelineInterface>
+    ├── AuditPipelineResolver::resolve(auditChecks) → list<AuditPipelineInterface>
     │       filters all app.audit_pipeline-tagged services:
-    │       keeps pipelines where requiredFeatureFlag ∈ featureFlags (or null)
+    │       keeps pipelines where requiredFeatureFlag ∈ auditChecks (or null)
     └── AuditOrchestrator::orchestrate(product, pipelines) → list<AuditPipelineResult>
             │ per pipeline:
             └── pipeline->run(product)
@@ -70,7 +70,7 @@ Results are currently not persisted — `AuditReport` aggregate and repository a
 
 ## Application layer
 
-- `Command/RunAudit/RunAuditCommand` — carries all product data inline (`productId`, `tenantId`, `productTitle`, raw `images[]` array, `featureFlags[]`). The handler hydrates `AuditableProduct` from this data so the command serialises cleanly for async Messenger dispatch.
+- `Command/RunAudit/RunAuditCommand` — carries all product data inline (`productId`, `tenantId`, `productTitle`, raw `images[]` array, `auditChecks[]`). The handler hydrates `AuditableProduct` from this data so the command serialises cleanly for async Messenger dispatch.
 - `Command/RunAudit/RunAuditHandler` — resolves pipelines, orchestrates, discards results until `AuditReport` persistence is added.
 
 ---
@@ -81,8 +81,8 @@ Results are currently not persisted — `AuditReport` aggregate and repository a
 
 | Class | Tag | Required flag |
 |---|---|---|
-| `ImageAuditPipeline` | `app.audit_pipeline` | `FeatureFlag::ImageAudit` |
-| `AIImageAuditPipeline` | `app.audit_pipeline` | `FeatureFlag::AiImageAudit` |
+| `ImageAuditPipeline` | `app.audit_pipeline` | `AuditCheck::ImageAudit` |
+| `AIImageAuditPipeline` | `app.audit_pipeline` | `AuditCheck::AiImageAudit` |
 
 Pipelines receive their specifications via `#[AutowireIterator('<tag>')]`. `AIImageAuditPipeline` has no specifications wired yet — add them under tag `app.audit_specification.ai_image`.
 
@@ -100,7 +100,7 @@ All tagged `app.audit_specification.image`. Priority controls execution order wi
 
 ### `AuditPipelineResolver`
 
-Receives all `app.audit_pipeline`-tagged services via `#[AutowireIterator('app.audit_pipeline')]`. Filters by comparing each pipeline's `requiredFeatureFlag()` against the provided `FeatureFlag[]` list using strict `in_array`.
+Receives all `app.audit_pipeline`-tagged services via `#[AutowireIterator('app.audit_pipeline')]`. Filters by comparing each pipeline's `requiredFeatureFlag()` against the provided `AuditCheck[]` list using strict `in_array`.
 
 ### `AuditOrchestrator`
 
@@ -126,7 +126,7 @@ Stateless — takes resolved pipelines as a method parameter, never holds them a
 
 ## Constraints
 
-- Feature flag filtering happens in `AuditPipelineResolver`, not inside the orchestrator or individual pipelines. The orchestrator is ignorant of tenancy.
+- `AuditCheck` filtering happens in `AuditPipelineResolver`, not inside the orchestrator or individual pipelines. The orchestrator is ignorant of tenancy.
 - Specifications return a single `SpecificationResult` per call — one pass or the first failure encountered. They do not return per-image results.
 - `SpecificationResult::specificationName` is set to `self::class` by convention in all specification implementations.
 - `ImageUrlReachableSpecification` makes HTTP HEAD requests — mock `HttpClientInterface` in unit tests.
