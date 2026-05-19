@@ -22,11 +22,13 @@ Fetches Shopify products into the platform so ImageAudit can act on them. Tenant
 | Class | Purpose |
 |---|---|
 | `ShopifyGid` | Wraps `gid://shopify/{Type}/{Id}`; factory methods `::product()`, `::collection()`, `::fromString()` |
-| `SyncCursor` | `endCursor: ?string` + `hasNextPage: bool`; stored as JSONB on `tenant_monitored_collections_sync` |
+| `SyncCursor` | `endCursor: ?string` + `hasNextPage: bool`; stored as JSONB on `tenant_monitored_collections_sync`; `::same(?SyncCursor, ?SyncCursor): bool` for null-safe CAS comparison |
 | `SyncStatus` | Enum: `Pending`, `Running`, `Completed`, `Failed` |
 | `ProductStatus` | Enum: `Active`, `Archived`, `Draft` |
 | `ProductFilter` | `collectionGid: ShopifyGid`, `status: ProductStatus = Active` |
-| `ProductPage` | `products: Product[]`, `cursor: SyncCursor` — return type from `ProductFetcherInterface::fetchPage()` |
+| `ProductPage` | `products: Product[]`, `cursor: SyncCursor` — the page payload without cost telemetry |
+| `ProductPageResult` | `page: ProductPage` + `cost: RequestCost` + `throttle: ThrottleStatus` — return type of `ProductCatalogInterface::getPage()` |
+| `ProductResult` | `product: Product` + `cost: RequestCost` + `throttle: ThrottleStatus` — return type of `ProductCatalogInterface::getByGid()` |
 
 ### Aggregates (`Domain/Model/`)
 
@@ -51,6 +53,7 @@ schedule(tenantId, monitoredCollectionId, collectionGid, now) → status=Pending
 start()                                                       → Pending→Running, raises MonitoredCollectionSyncStarted
 recordPage(endCursor, hasNextPage, count, auditChecks[])      → raises MonitoredCollectionSyncProcessed; if !hasNextPage: Completed + MonitoredCollectionSyncCompleted
 fail(reason, at)                                              → raises MonitoredCollectionSyncFailed
+isTerminal(): bool                                            → true when status ∈ {Completed, Failed}; fast-path bail before acquiring the DB lock
 ```
 
 **`Product`** — not persisted (pending)
@@ -81,7 +84,7 @@ In-memory representation of a fetched Shopify product. Not an aggregate — no d
 | `ConfigureMonitoredCollectionCommand` | Upsert `MonitoredCollection` by `(tenantId, collectionGid)`; idempotent |
 | `DispatchTenantsCollectionsSyncCommand(criteria)` | **Targeted path** (`criteria.tenantIds` non-empty): dispatch `AcquireTenantsCollectionsForSyncCommand` immediately. **Paginated path** (`criteria.tenantIds` empty): call `ActiveTenantBatchClaimer` to claim up to 100 active tenants via keyset pagination, dispatch `AcquireTenantsCollectionsForSyncCommand` per batch, self-dispatch with advanced `lastTenantId` cursor until batch < 100 |
 | `AcquireTenantsCollectionsForSyncCommand(tenantIds, lastCollectionId)` | Call `TenantScopedMonitoredCollectionSyncClaimer` to claim up to 100 eligible collections for the given tenants, dispatch `ProcessTenantCollectionSyncCommand` + `TenantStamp` per claimed job, self-dispatch with advanced `lastCollectionId` cursor if batch was full |
-| `ProcessTenantCollectionSyncCommand(syncJobId)` | If job is `Pending`: call `start()` + save. Fetch one product page from Shopify (configurable `$productPageSize`, default 250); call `recordPage()`; re-dispatch if `hasNextPage` |
+| `ProcessTenantCollectionSyncCommand(syncJobId)` | **Two-phase design** — Phase 1 (no lock): bail early if terminal, start if Pending, resolve collection, capture cursor, fire Shopify API call. On `RateLimitExceededException`: re-dispatch with `DelayStamp` (does not consume a Messenger retry counter). Phase 2 (tight transaction with pessimistic lock): CAS on `SyncCursor::same()` to discard stale pages; `recordPage()`; re-dispatch if `hasNextPage` |
 | `HandleWebhookCommand` | Receives Shopify product webhook — stub, not yet implemented |
 | `RescheduleStuckTenantsCollectionsSyncCommand` | Find Pending jobs older than injected `$stuckThresholdMinutes` (default 5); re-dispatch `ProcessTenantCollectionSyncCommand` + `TenantStamp` for each |
 
@@ -144,12 +147,19 @@ AcquireTenantsCollectionsForSyncHandler  [repeats until batch < batchSize]
           tenantIds=same, lastCollectionId=last monitoredCollectionId)
 
 ProcessTenantCollectionSyncHandler  [repeated until hasNextPage = false]
-    → findById(syncJobId)
+    ── Phase 1 (no lock, no transaction) ──────────────────────────────────────
+    → findById(syncJobId); bail if nil or isTerminal()
     → if Pending: sync->start() + save   ← Pending → Running, raises MonitoredCollectionSyncStarted
+    → collectionRepository::findById(monitoredCollectionId); bail if nil
+    → cursorUsed = job->cursor()
+    → ProductCatalogInterface::getPage(ProductFilter, tenantId, cursorUsed, productPageSize=250)
+        ↳ RateLimitedProductCatalog::reserve() checked first; on denial throws RateLimitExceededException
+        ↳ on RateLimitExceededException: re-dispatch + DelayStamp(max(1s, retryAfterSeconds×1000ms)); return
+        ↳ on success: reconcile() + syncFromResponse() update credits + throttle state
+    ── Phase 2 (tight transaction: lock → CAS → record) ───────────────────────
     → wrapInTransaction:
         → findByIdForProcessing(syncJobId)  ← pessimistic write lock
-        → MonitoredCollectionRepository::findById(monitoredCollectionId)
-        → ProductCatalogInterface::getPage(ProductFilter, tenantId, cursor, productPageSize=250)
+        → SyncCursor::same(job->cursor(), cursorUsed) → if false: discard stale page, return
         → sync->recordPage(endCursor, hasNextPage, count, auditChecks[])
         → save(sync)
         → if hasNextPage: dispatch ProcessTenantCollectionSyncCommand again + TenantStamp
@@ -195,18 +205,29 @@ Two enforcement layers:
 
 ### `ShopifyClient`
 
-Low-level GraphQL transport. Holds `HttpClientInterface` and the `SHOPIFY_API_VERSION` env var. Exposes a single `query(shopDomain, accessToken, query, variables): array` method. The API version is injected via `#[Autowire('%env(SHOPIFY_API_VERSION)%')]` — do not hard-code the version inside the fetcher.
+Low-level GraphQL transport (`Infrastructure/Api/ShopifyClient.php`). Holds `HttpClientInterface` and the `SHOPIFY_API_VERSION` env var. `query()` now returns `ShopifyApiResponse` instead of a raw array:
+- Detects `errors[].extensions.code === 'THROTTLED'` and throws `ShopifyThrottledException` before returning.
+- Other GraphQL errors throw `\RuntimeException`.
+- On success: parses `extensions.cost` via `ApiCostDto` and wraps `data`, `RequestCost`, and `ThrottleStatus` in `ShopifyApiResponse`.
+- If Shopify does not return `extensions.cost` (non-cost-tracked calls), defaults to `RequestCost(0,0)` / `ThrottleStatus(2000,2000,100)`.
 
-### `ShopifyProductFetcher`
+### `ProductCatalog` and `RateLimitedProductCatalog`
 
-Implements `ProductFetcherInterface`. Resolves Shopify credentials from `TenantRepositoryInterface` internally — credentials never appear in domain contracts. Delegates HTTP to `ShopifyClient`; parses responses through typed DTOs in `GraphQL/Dto/` before mapping to domain objects. No raw `array` shapes leak past this class.
+`ProductCatalog` (`Infrastructure/Catalog/ProductCatalog.php`) implements `ProductCatalogInterface`. Both `getPage()` and `getByGid()` return result envelopes (`ProductPageResult` / `ProductResult`) carrying cost telemetry from `ShopifyApiResponse`.
 
-### GraphQL DTOs (`Infrastructure/Shopify/GraphQL/Dto/`)
+`RateLimitedProductCatalog` (`Infrastructure/Catalog/RateLimitedProductCatalog.php`) is a `#[AsDecorator]` wrapping `ProductCatalog`. Before every API call it calls `ApiBudgetGuard::reserve()`; on `Reservation::denied` it throws `RateLimitExceededException`. On success it calls `reconcile()` and `syncFromResponse()`. On any exception (throttle or transport error) it refunds the estimated cost back to the credits store via `reconcile(RequestCost(estimated, 0))`.
 
-Typed value objects for Shopify GraphQL responses — not domain objects. Used only inside `ShopifyProductFetcher` to parse raw API arrays before mapping.
+### `ShopifyCostEstimator`
+
+`Infrastructure/RateLimit/ShopifyCostEstimator.php` — estimates Shopify query cost before the call is made. `estimateForCollectionPage(int $pageSize): int` uses `base + 2×pageSize` (each node in a connection costs ~2 points) multiplied by the configured buffer percentage (default 20 %). `estimateForProductByGid(): int` uses a fixed base cost. Both constants are injected via `catalog.yaml`.
+
+### GraphQL DTOs (`Infrastructure/Api/GraphQL/Product/Query/Dto/`)
+
+Typed value objects for Shopify GraphQL responses — not domain objects. Used only inside `ProductCatalog` to parse raw API arrays before mapping.
 
 | Class | Purpose |
 |---|---|
+| `ApiCostDto` | Parses `extensions.cost` — `requestedQueryCost`, `actualQueryCost`, `throttleStatus`; `toRequestCost()` / `throttleStatus` accessors |
 | `ImageDto` | Single image node: `url`, `altText`, `width`, `height`. `toArray()` returns the `list<array{...}>` shape that `Product::create()` accepts. |
 | `ProductNodeDto` | Full product node: id, title, handle, vendor, productType, status, featuredImageUrl, `list<ImageDto>`. |
 | `PageInfoDto` | `hasNextPage: bool`, `endCursor: ?string`. |

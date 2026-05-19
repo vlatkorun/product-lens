@@ -191,6 +191,11 @@ class MonitoredCollectionSync extends AggregateRoot implements TenantScopedInter
         $this->updatedAt = new \DateTimeImmutable();
     }
 
+    public function isTerminal(): bool
+    {
+        return \in_array($this->status, [SyncStatus::Completed, SyncStatus::Failed], true);
+    }
+
     public function id(): UuidV7
     {
         return $this->resourceId;

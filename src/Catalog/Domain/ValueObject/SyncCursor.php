@@ -11,4 +11,9 @@ final readonly class SyncCursor
         public bool $hasNextPage,
     ) {
     }
+
+    public static function same(?self $a, ?self $b): bool
+    {
+        return $a?->endCursor === $b?->endCursor;
+    }
 }

@@ -5,6 +5,9 @@ services:
         autowire: true
         autoconfigure: true
 
+    App\Catalog\Domain\Service\ProductCatalogInterface:
+        alias: App\Catalog\Infrastructure\Catalog\ProductCatalog
+
     App\Catalog\Infrastructure\Api\ShopifyClient:
         arguments:
             $httpClient: '@http_client'
@@ -27,3 +30,10 @@ services:
     App\Catalog\Application\Command\RescheduleStuckTenantsCollectionsSync\RescheduleStuckTenantsCollectionsSyncHandler:
         arguments:
             $stuckThresholdMinutes: 5
+
+    App\Catalog\Infrastructure\RateLimit\ShopifyCostEstimator:
+        arguments:
+            $collectionPageBaseCost: 5
+            $productByGidBaseCost: 10
+            $costBufferPct: 20
+

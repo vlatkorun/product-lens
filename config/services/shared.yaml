@@ -8,3 +8,30 @@ services:
     App\Shared\Infrastructure\Symfony\LoggingMiddleware:
         arguments:
             $logger: '@monolog.logger.messenger'
+
+    App\Shared\Domain\RateLimit\TokenBucketLimiterInterface:
+        alias: App\Shared\Infrastructure\RateLimit\Symfony\SymfonyTokenBucketLimiter
+
+    App\Shared\Domain\RateLimit\CreditsStoreInterface:
+        alias: App\Shared\Infrastructure\RateLimit\Symfony\RedisCreditsStore
+
+    App\Shared\Domain\RateLimit\ThrottleStateStoreInterface:
+        alias: App\Shared\Infrastructure\RateLimit\Symfony\CacheThrottleStateStore
+
+    App\Shared\Infrastructure\RateLimit\Symfony\SymfonyTokenBucketLimiter:
+        arguments:
+            $shopifyAdminApiLimiter: '@limiter.shopify_admin_api'
+
+    redis.credits_store.connection:
+        class: \Redis
+        factory: ['Symfony\Component\Cache\Adapter\RedisAdapter', 'createConnection']
+        arguments:
+            - '%env(REDIS_URL)%'
+
+    App\Shared\Infrastructure\RateLimit\Symfony\RedisCreditsStore:
+        arguments:
+            $redis: '@redis.credits_store.connection'
+
+    App\Shared\Infrastructure\RateLimit\Symfony\CacheThrottleStateStore:
+        arguments:
+            $rateLimiterCache: '@cache.rate_limiter'

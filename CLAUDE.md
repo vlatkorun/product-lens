@@ -86,7 +86,7 @@ across their full Shopify catalogue without manual inspection.
 - **Symfony Messenger** — command bus, query bus, and event bus (same component,
   different transports)
 - **RabbitMQ** — Messenger async transport for commands and domain events
-- **Redis** — caching and session storage
+- **Redis** — caching, rate-limit state, and session storage; `symfony/rate-limiter` + `symfony/lock` for per-tenant token bucket
 - **Symfony Scheduler** — periodic sync jobs
 - **Shopify GraphQL Admin API** — Relay Connection spec, cursor-based pagination
 - **Claude API** (Anthropic) — AI image audit step
@@ -133,13 +133,29 @@ src/
 │   │   ├── Event/AsyncDomainEvent.php           ← marker interface (async dispatch via Messenger)
 │   │   ├── ValueObject/AuditCheck.php           ← backed enum: ImageAudit, AiImageAudit
 │   │   ├── ValueObject/TenantId.php             ← planned
-│   │   └── Clock/ClockInterface.php             ← planned
+│   │   ├── Clock/ClockInterface.php             ← planned
+│   │   └── RateLimit/
+│   │       ├── BucketId.php                     ← namespace:key string key; ::shopifyAdmin(UuidV7)
+│   │       ├── Reservation.php                  ← ::granted(consumed) / ::denied(retryAfterSeconds)
+│   │       ├── RequestCost.php                  ← requested + actual; overcharge() helper
+│   │       ├── ThrottleStatus.php               ← maximumAvailable, currentlyAvailable, restoreRate
+│   │       ├── TokenBucketLimiterInterface.php  ← tryConsume(BucketId, int): Reservation
+│   │       ├── CreditsStoreInterface.php        ← add / consume (returns tokens actually taken)
+│   │       ├── ThrottleStateStoreInterface.php  ← read / write ThrottleStatus snapshot (30s TTL)
+│   │       └── Exception/RateLimitExceededException.php ← carries retryAfterSeconds + BucketId
+│   ├── Application/
+│   │   └── RateLimit/
+│   │       └── ApiBudgetGuard.php               ← reserve / reconcile / syncFromResponse; in Shared/Application so Audit can reuse for Claude API
 │   └── Infrastructure/
 │       ├── Doctrine/Type/
 │       │   ├── EncryptedStringType.php          ← sodium-encrypted TEXT columns
 │       │   └── JsonbType.php                    ← JSONB column type
-│       └── Event/
-│           └── DomainEventPublisher.php         ← routes sync/async events after repository save()
+│       ├── Event/
+│       │   └── DomainEventPublisher.php         ← routes sync/async events after repository save()
+│       └── RateLimit/Symfony/
+│           ├── SymfonyTokenBucketLimiter.php    ← wraps RateLimiterFactory (limiter.shopify_admin_api)
+│           ├── RedisCreditsStore.php            ← INCRBY on add; Lua-atomic DECRBY on consume
+│           └── CacheThrottleStateStore.php      ← PSR-6 cache.rate_limiter pool; 30s TTL
 │
 ├── Identity/
 │   ├── Domain/
@@ -191,26 +207,31 @@ src/
 ├── Catalog/
 │   ├── Domain/
 │   │   ├── Model/MonitoredCollection.php         ← aggregate root (table: tenant_monitored_collections)
-│   │   ├── Model/MonitoredCollectionSync.php     ← aggregate root (table: tenant_monitored_collections_sync)
+│   │   ├── Model/MonitoredCollectionSync.php     ← aggregate root (table: tenant_monitored_collections_sync); isTerminal()
 │   │   ├── Model/Product.php                     ← entity (read model)
-│   │   ├── ValueObject/SyncCursor.php            ← wraps endCursor + hasNextPage
-│   │   ├── ValueObject/SyncStatus.php            ← enum: PENDING|RUNNING|COMPLETED|FAILED
+│   │   ├── ValueObject/SyncCursor.php            ← endCursor + hasNextPage; ::same(?SyncCursor, ?SyncCursor): bool
+│   │   ├── ValueObject/SyncStatus.php            ← enum: Pending|Running|Completed|Failed
+│   │   ├── ValueObject/ProductPageResult.php     ← ProductPage + RequestCost + ThrottleStatus (getPage return type)
+│   │   ├── ValueObject/ProductResult.php         ← Product + RequestCost + ThrottleStatus (getByGid return type)
 │   │   ├── Repository/{MonitoredCollectionSyncRepositoryInterface,ProductRepositoryInterface}.php
-│   │   ├── Service/ProductFetcherInterface.php   ← domain service contract
+│   │   ├── Service/ProductCatalogInterface.php   ← getPage(): ProductPageResult, getByGid(): ProductResult
 │   │   └── Event/{MonitoredCollectionSyncCompleted,MonitoredCollectionSyncFailed,...}.php
 │   ├── Application/
-│   │   ├── Command/DispatchCollectionSyncBatch/{Command,Handler,ActiveTenantBatchClaimer,ActiveTenantBatchCriteriaDto,DispatchCollectionSyncBatchCriteriaDto}.php
-│   │   ├── Command/ProcessTenantsCollectionsSync/{Command,Handler,TenantScopedMonitoredCollectionSyncClaimer,TenantCollectionSyncClaimCriteriaDto,ClaimedTenantCollectionSyncDto}.php
-│   │   ├── Command/StartSync/{Command,Handler}.php
-│   │   ├── Command/FetchNextPage/{Command,Handler}.php
+│   │   ├── Command/DispatchTenantsCollectionsSync/{Command,Handler,DispatchTenantsCollectionsSyncCriteriaDto}.php
+│   │   ├── Command/AcquireTenantsCollectionsForSync/{Command,Handler,...}.php
+│   │   ├── Command/ProcessTenantCollectionSync/{Command,Handler}.php ← two-phase: HTTP outside lock, CAS on cursor
 │   │   ├── Command/HandleWebhook/{Command,Handler}.php
 │   │   ├── Command/RescheduleStuckTenantsCollectionsSync/{Command,Handler,StuckCollectionSyncThresholdDto}.php
 │   │   └── Query/GetSyncStatus/{Query,Handler}.php
 │   └── Infrastructure/
-│       ├── Shopify/ShopifyClient.php             ← GraphQL transport; holds HttpClient + SHOPIFY_API_VERSION
-│       ├── Shopify/ShopifyProductFetcher.php     ← implements ProductFetcherInterface; maps DTOs → domain
-│       ├── Shopify/GraphQL/Dto/{ImageDto,ProductNodeDto,PageInfoDto,...}.php  ← typed response DTOs
-│       ├── Shopify/Webhook/{ShopifyWebhookController,ShopifyWebhookValidator}.php
+│       ├── Api/ShopifyClient.php                 ← query() returns ShopifyApiResponse (data + RequestCost + ThrottleStatus)
+│       ├── Api/ShopifyApiResponse.php            ← envelope: data[], RequestCost, ThrottleStatus
+│       ├── Api/Exception/ShopifyThrottledException.php ← thrown on errors[].extensions.code === THROTTLED
+│       ├── Api/GraphQL/Product/Query/Dto/        ← typed response DTOs; ApiCostDto parses extensions.cost
+│       ├── Catalog/ProductCatalog.php            ← implements ProductCatalogInterface; returns result envelopes
+│       ├── Catalog/RateLimitedProductCatalog.php ← #[AsDecorator] on ProductCatalog; reserve/reconcile/refund on error
+│       ├── RateLimit/ShopifyCostEstimator.php    ← estimateForCollectionPage(pageSize) / estimateForProductByGid()
+│       ├── Http/Webhook/{ShopifyWebhookController,ShopifyWebhookValidator,...}.php
 │       ├── Persistence/{DoctrineMonitoredCollectionSyncRepository,DoctrineProductRepository}.php
 │       └── Scheduler/CatalogImportSchedule.php    ← Symfony Scheduler
 │
@@ -301,12 +322,28 @@ can be rotated independently of Symfony's framework secret (CSRF, cookies, sessi
 `MonitoredCollectionSync` owns the cursor state. `MonitoredCollectionSync::recordPage(endCursor, hasNextPage)`
 replaces `SyncCursor` each page and transitions to `COMPLETED` + raises
 `MonitoredCollectionSyncCompleted` when `hasNextPage` is false. The job can be resumed at any
-point by reading `$sync->cursor()`.
+point by reading `$sync->cursor()`. `isTerminal()` returns `true` when status is `Completed` or `Failed`.
 
-`ProductFetcherInterface` is a domain service contract. `ShopifyProductFetcher`
-implements it in Infrastructure via `ShopifyClient` (which wraps `HttpClientInterface`
-and the versioned Shopify GraphQL Admin API). Responses are parsed through typed DTOs
-before being mapped to domain objects. The domain never touches HTTP or raw arrays.
+`ProductCatalogInterface` exposes `getPage(): ProductPageResult` and `getByGid(): ProductResult`. Each
+result carries the `ProductPage`/`Product` alongside `RequestCost` and `ThrottleStatus` extracted from
+Shopify's `extensions.cost` response field. `ProductCatalog` is the concrete implementation;
+`RateLimitedProductCatalog` decorates it transparently via `#[AsDecorator]`.
+
+`ShopifyClient::query()` returns `ShopifyApiResponse` (data + `RequestCost` + `ThrottleStatus`). It
+also detects `errors[].extensions.code === THROTTLED` and throws `ShopifyThrottledException`
+before the caller ever sees the response.
+
+`ProcessTenantCollectionSyncHandler` uses a **two-phase design** to keep the DB lock short:
+Phase 1 — no lock, no transaction: start the job if Pending, resolve the collection, capture the
+cursor, fire the Shopify API call. On `RateLimitExceededException` re-dispatch with `DelayStamp`
+(does not consume a Messenger retry). Phase 2 — tight transaction with pessimistic lock: CAS on
+`SyncCursor::same()` to detect stale pages from duplicate dispatches; record the page; re-dispatch
+if `hasNextPage`.
+
+`ApiBudgetGuard` (in `Shared/Application/RateLimit/`) orchestrates reserve/reconcile/syncFromResponse
+across the three rate-limit ports. `ShopifyCostEstimator` provides per-call cost estimates
+(`base + 2 × pageSize` + configurable buffer %). The Symfony token-bucket config lives in
+`framework.yaml`; the Redis credits store and throttle state cache pool are bound in `shared.yaml`.
 
 Periodic sync is driven by `CatalogImportSchedule` (Symfony Scheduler component).
 Webhook-triggered syncs go through `HandleWebhookCommand`, which creates or
@@ -532,7 +569,7 @@ every repository and handler.
 - Tenant runtime isolation: Doctrine SQL filter + PostgreSQL Row Level Security
 
 **CatalogSync**
-- Unit and integration tests for all commands and handlers
+- Unit and integration tests for all commands and handlers (rate-limit ports/adapters, `ApiBudgetGuard`, decorator, handler two-phase rewrite)
 - `MonitoredCollectionSyncClaimer` integration test (requires real DB + `FOR UPDATE SKIP LOCKED` verification)
 
 **Audit** — `AuditReport` aggregate + persistence; event listener on `MonitoredCollectionSyncCompleted`; AI image specifications; `AuditCompleted` event; query layer. See @src/Audit/CLAUDE.md.

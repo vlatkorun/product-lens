@@ -8,6 +8,8 @@ use App\Catalog\Domain\Model\Product;
 use App\Catalog\Domain\Service\ProductCatalogInterface;
 use App\Catalog\Domain\ValueObject\ProductFilter;
 use App\Catalog\Domain\ValueObject\ProductPage;
+use App\Catalog\Domain\ValueObject\ProductPageResult;
+use App\Catalog\Domain\ValueObject\ProductResult;
 use App\Catalog\Domain\ValueObject\ProductStatus;
 use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Catalog\Domain\ValueObject\SyncCursor;
@@ -30,20 +32,24 @@ final readonly class ProductCatalog implements ProductCatalogInterface
     ) {
     }
 
-    public function getByGid(ShopifyGid $gid, UuidV7 $tenantId): Product
+    public function getByGid(ShopifyGid $gid, UuidV7 $tenantId): ProductResult
     {
         ['shopDomain' => $shopDomain, 'accessToken' => $accessToken] = $this->resolveCredentials($tenantId);
 
-        $data = $this->shopifyClient->query(
+        $response = $this->shopifyClient->query(
             $shopDomain,
             $accessToken,
             GetProductQuery::QUERY,
             GetProductQuery::variables($gid->value),
         );
 
-        $dto = GetProductResponseDto::fromResponse($data);
+        $dto = GetProductResponseDto::fromResponse($response->data);
 
-        return $this->mapProduct($dto->product, $gid, $tenantId, new \DateTimeImmutable());
+        return new ProductResult(
+            $this->mapProduct($dto->product, $gid, $tenantId, new \DateTimeImmutable()),
+            $response->cost,
+            $response->throttle,
+        );
     }
 
     public function getPage(
@@ -51,10 +57,10 @@ final readonly class ProductCatalog implements ProductCatalogInterface
         UuidV7 $tenantId,
         ?SyncCursor $after = null,
         int $pageSize = 250,
-    ): ProductPage {
+    ): ProductPageResult {
         ['shopDomain' => $shopDomain, 'accessToken' => $accessToken] = $this->resolveCredentials($tenantId);
 
-        $data = $this->shopifyClient->query(
+        $response = $this->shopifyClient->query(
             $shopDomain,
             $accessToken,
             ProductsByCollectionQuery::QUERY,
@@ -65,7 +71,7 @@ final readonly class ProductCatalog implements ProductCatalogInterface
             ),
         );
 
-        $dto = ProductsByCollectionResponseDto::fromResponse($data);
+        $dto = ProductsByCollectionResponseDto::fromResponse($response->data);
         $syncedAt = new \DateTimeImmutable();
 
         $products = \array_values(\array_map(
@@ -73,12 +79,16 @@ final readonly class ProductCatalog implements ProductCatalogInterface
             $dto->products,
         ));
 
-        return new ProductPage(
-            $products,
-            new SyncCursor(
-                $dto->pageInfo->endCursor,
-                $dto->pageInfo->hasNextPage,
+        return new ProductPageResult(
+            new ProductPage(
+                $products,
+                new SyncCursor(
+                    $dto->pageInfo->endCursor,
+                    $dto->pageInfo->hasNextPage,
+                ),
             ),
+            $response->cost,
+            $response->throttle,
         );
     }
 

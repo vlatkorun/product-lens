@@ -5,6 +5,16 @@ framework:
     # Note that the session will be started ONLY if you read or write from it.
     session: true
 
+    rate_limiter:
+        shopify_admin_api:
+            policy: token_bucket
+            limit: 2000
+            rate: { interval: '1 second', amount: 100 }
+            cache_pool: cache.rate_limiter
+            lock_factory: lock.factory
+
+    lock: '%env(LOCK_DSN)%'
+
     #esi: true
     #fragments: true
 
