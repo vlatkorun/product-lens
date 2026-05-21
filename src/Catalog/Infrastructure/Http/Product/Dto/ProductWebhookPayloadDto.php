@@ -31,8 +31,8 @@ final readonly class ProductWebhookPayloadDto implements WebhookPayloadDtoInterf
         );
     }
 
-    public function gid(): string
+    public function gid(): ShopifyGid
     {
-        return ShopifyGid::product($this->id)->value;
+        return ShopifyGid::product($this->id);
     }
 }

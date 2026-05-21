@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Catalog\Application\Command\HandleWebhook\Dto;
 
+use App\Catalog\Domain\ValueObject\ShopifyGid;
+
 interface WebhookPayloadDtoInterface
 {
-    public function gid(): string;
+    public function gid(): ShopifyGid;
 }

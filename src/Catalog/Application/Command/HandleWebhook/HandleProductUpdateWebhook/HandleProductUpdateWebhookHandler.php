@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Catalog\Application\Command\HandleWebhook\HandleProductUpdateWebhook;
 
-use App\Catalog\Domain\Model\MonitoredCollection;
-use App\Catalog\Domain\Repository\MonitoredCollectionRepositoryInterface;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
+use App\Catalog\Application\Matcher\MonitoredCollectionMatcher;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -18,30 +16,8 @@ final readonly class HandleProductUpdateWebhookHandler
     public function __construct(
         #[Autowire(service: 'monolog.logger.catalog_import')]
         private LoggerInterface $logger,
-        private MonitoredCollectionRepositoryInterface $monitoredCollectionRepository,
+        private MonitoredCollectionMatcher $monitoredCollectionMatcher,
     ) {
-    }
-
-    /**
-     * @param list<string> $collectionIds
-     *
-     * @return list<MonitoredCollection>
-     */
-    private function resolveMonitoredCollections(UuidV7 $tenantId, array $collectionIds): array
-    {
-        $matched = [];
-        foreach ($collectionIds as $collectionId) {
-            $collection = $this->monitoredCollectionRepository->findByTenantAndCollectionGid(
-                $tenantId,
-                ShopifyGid::collection($collectionId),
-            );
-
-            if ($collection !== null && $collection->isEnabled()) {
-                $matched[] = $collection;
-            }
-        }
-
-        return $matched;
     }
 
     public function __invoke(HandleProductUpdateWebhookCommand $command): void
@@ -50,15 +26,15 @@ final readonly class HandleProductUpdateWebhookHandler
         $gid = $command->payload->gid();
 
         $this->logger->info('Handling Shopify product update webhook', [
-            'gid'       => $gid,
+            'gid'       => $gid->value,
             'tenant_id' => $command->tenantId,
         ]);
 
-        $monitoredCollections = $this->resolveMonitoredCollections($tenantId, $command->payload->collectionIds);
+        $monitoredCollections = $this->monitoredCollectionMatcher->match($tenantId, $command->payload->collectionIds);
 
         if ($monitoredCollections === []) {
             $this->logger->info('Webhook product does not belong to any monitored collection, skipping', [
-                'gid'       => $gid,
+                'gid'       => $gid->value,
                 'tenant_id' => $command->tenantId,
             ]);
 

@@ -20,7 +20,7 @@ final readonly class HandleProductDeleteWebhookHandler
     public function __invoke(HandleProductDeleteWebhookCommand $command): void
     {
         $this->logger->info('Webhook topic is ignored, skipping', [
-            'gid'       => $command->payload->gid(),
+            'gid'       => $command->payload->gid()->value,
             'tenant_id' => $command->tenantId,
         ]);
     }
