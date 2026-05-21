@@ -11,7 +11,6 @@ use App\Catalog\Domain\ValueObject\ProductPage;
 use App\Catalog\Domain\ValueObject\ProductPageResult;
 use App\Catalog\Domain\ValueObject\ProductResult;
 use App\Catalog\Domain\ValueObject\ProductStatus;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Catalog\Domain\ValueObject\SyncCursor;
 use App\Catalog\Infrastructure\Api\GraphQL\Product\Query\Dto\GetProductResponseDto;
 use App\Catalog\Infrastructure\Api\GraphQL\Product\Query\Dto\ImageDto;
@@ -21,6 +20,7 @@ use App\Catalog\Infrastructure\Api\GraphQL\Product\Query\Dto\VariantDto;
 use App\Catalog\Infrastructure\Api\GraphQL\Product\Query\GetProductQuery;
 use App\Catalog\Infrastructure\Api\GraphQL\Product\Query\ProductsByCollectionQuery;
 use App\Catalog\Infrastructure\Api\ShopifyClient;
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use App\Tenancy\Domain\Repository\TenantRepositoryInterface;
 use Symfony\Component\Uid\UuidV7;
 

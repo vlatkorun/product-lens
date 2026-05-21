@@ -19,9 +19,10 @@ Fetches Shopify products into the platform so ImageAudit can act on them. Tenant
 
 ### Value objects (`Domain/ValueObject/`)
 
+`ShopifyGid` (used heavily across this context) lives in `App\Shared\Domain\ValueObject\ShopifyGid` — it is a Shopify platform primitive shared with other contexts (Audit, Tenancy). Catalog is a consumer, not the owner.
+
 | Class | Purpose |
 |---|---|
-| `ShopifyGid` | Wraps `gid://shopify/{Type}/{Id}`; factory methods `::product()`, `::collection()`, `::fromString()` |
 | `SyncCursor` | `endCursor: ?string` + `hasNextPage: bool`; stored as JSONB on `tenant_monitored_collections_sync`; `::same(?SyncCursor, ?SyncCursor): bool` for null-safe CAS comparison |
 | `SyncStatus` | Enum: `Pending`, `Running`, `Completed`, `Failed` |
 | `ProductStatus` | Enum: `Active`, `Archived`, `Draft` |

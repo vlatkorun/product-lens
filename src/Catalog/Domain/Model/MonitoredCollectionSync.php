@@ -9,13 +9,13 @@ use App\Catalog\Domain\Event\MonitoredCollectionSyncFailed;
 use App\Catalog\Domain\Event\MonitoredCollectionSyncPageSkipped;
 use App\Catalog\Domain\Event\MonitoredCollectionSyncProcessed;
 use App\Catalog\Domain\Event\MonitoredCollectionSyncStarted;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Catalog\Domain\ValueObject\SyncCursor;
 use App\Catalog\Domain\ValueObject\SyncStatus;
 use App\Catalog\Infrastructure\Persistence\DoctrineMonitoredCollectionSyncRepository;
 use App\Shared\Domain\Model\AggregateRoot;
 use App\Shared\Domain\Model\TenantScopedInterface;
 use App\Shared\Domain\ValueObject\AuditCheck;
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\UuidV7;
 

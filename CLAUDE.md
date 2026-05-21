@@ -51,7 +51,7 @@ provider or inline construction suffices.
   require a real database connection.
 - **Each bounded context has its own tests.** Do not write cross-context assertions
   inside a context's own test file — cross-context event flow (e.g. `MonitoredCollectionSyncCompleted`
-  triggering `RunAuditCommand`) belongs in `tests/Integration/`.
+  triggering `ProductAuditCommand`) belongs in `tests/Integration/`.
 - **Use data providers** for value object validation (e.g. shop domain format rules,
   `AuditCheck` enum mapping, `UserRole` hierarchy) — there are many input
   combinations to cover exhaustively.
@@ -118,7 +118,7 @@ writes to Tenancy.
 
 **CatalogSync → Audit** is the main flow. When a sync job completes (or a
 product webhook arrives), `MonitoredCollectionSyncCompleted` is dispatched. Audit listens and
-dispatches `RunAuditCommand` (event listener not yet built). The two contexts never import each other's namespaces. See @src/Audit/CLAUDE.md.
+dispatches `ProductAuditCommand` per affected product (event listener not yet built). The two contexts never import each other's namespaces. See @src/Audit/CLAUDE.md.
 
 ---
 
@@ -132,6 +132,7 @@ src/
 │   │   ├── Event/DomainEvent.php                ← marker interface (sync dispatch)
 │   │   ├── Event/AsyncDomainEvent.php           ← marker interface (async dispatch via Messenger)
 │   │   ├── ValueObject/AuditCheck.php           ← backed enum: ImageAudit, AiImageAudit
+│   │   ├── ValueObject/ShopifyGid.php           ← wraps `gid://shopify/{Type}/{Id}`; factories ::product()/::collection()/::fromString()
 │   │   ├── ValueObject/TenantId.php             ← planned
 │   │   ├── Clock/ClockInterface.php             ← planned
 │   │   └── RateLimit/
@@ -237,18 +238,18 @@ src/
 │
 └── Audit/
     ├── Domain/
-    │   ├── Specification/{SpecificationInterface,SpecificationResult,Issue}.php
+    │   ├── Specification/{ProductSpecificationInterface,SpecificationResult,Issue}.php
     │   ├── Specification/ValueObject/Severity.php   ← enum: CRITICAL|WARNING|INFO
-    │   ├── Pipeline/{AuditPipelineInterface,AuditPipelineResult}.php
-    │   ├── Service/{AuditOrchestratorInterface,AuditPipelineResolverInterface}.php
-    │   └── ValueObject/{AuditableProduct,ProductImage}.php
+    │   ├── Pipeline/{AuditPipelineInterface,AuditPipelineResolverInterface,AuditPipelineResult}.php
+    │   ├── Orchestrator/AuditOrchestratorInterface.php
+    │   └── ValueObject/{AuditableObject,AuditableProduct,AuditableProductVariant,AuditableOrder,ProductImage}.php  ← subjects identify by ShopifyGid
     ├── Application/
-    │   └── Command/RunAudit/{Command,Handler}.php
+    │   └── Command/Audit/Product/{ProductAuditCommand,ProductAuditHandler}.php  ← async via Messenger
     └── Infrastructure/
-        ├── Pipeline/{ImageAuditPipeline,AIImageAuditPipeline}.php   ← tagged: app.audit_pipeline
-        ├── Specification/Image/{ImageExists,ImageUrlReachable,ImageDimensions}Specification.php
-        ├── AuditPipelineResolver.php             ← filters by AuditCheck via AutowireIterator
-        └── AuditOrchestrator.php                 ← stateless; takes pipelines as parameter
+        ├── Pipeline/Product/{ImageAuditPipeline,AIImageAuditPipeline}.php   ← tagged: app.audit_pipeline.product
+        ├── Pipeline/Product/ProductAuditPipelineResolver.php  ← autowires app.audit_pipeline.product
+        ├── Orchestrator/Product/ProductAuditOrchestrator.php  ← stateless; takes pipelines as parameter
+        └── Specification/Image/{ImageExists,ImageUrlReachable,ImageDimensions}Specification.php
 ```
 
 ---
@@ -351,7 +352,7 @@ resumes a `MonitoredCollectionSync` for the affected collection.
 
 ### Audit: pipeline-and-specification engine
 
-Each audit run passes an `AuditableProduct` through a resolved set of `AuditPipelineInterface` implementations. Pipelines declare a `requiredFeatureFlag()` — `AuditPipelineResolver` filters them against the tenant's active audit checks before the orchestrator runs them. Each pipeline holds a prioritised set of `SpecificationInterface` implementations injected via `#[AutowireIterator]`. See @src/Audit/CLAUDE.md for the full model and extension points.
+Per Shopify object type, `Application/Command/Audit/{Subject}/` holds a command + handler pair (today: `ProductAuditCommand` / `ProductAuditHandler`). The command carries the domain VO (`AuditableProduct`) directly — no separate DTO layer. Each `{Subject}AuditPipelineResolver` autowires its subject-scoped tag (`app.audit_pipeline.product`) and filters pipelines by `requiredFeatureFlag()` against the tenant's active audit checks. The `{Subject}AuditOrchestrator` then runs each pipeline; each pipeline holds a prioritised set of subject-scoped specifications (e.g. `ProductSpecificationInterface`) injected via `#[AutowireIterator]`. See @src/Audit/CLAUDE.md for the full model and extension points.
 
 ### Shopify OAuth flow
 
@@ -537,11 +538,11 @@ every repository and handler.
                               │
                         [Messenger event bus]
                               │
-                        RunAuditCommand dispatched (listener not yet built)
+                        ProductAuditCommand dispatched per product (listener not yet built)
                               │
-                        AuditPipelineResolver::resolve(auditChecks)
-                              │ (filters to enabled pipelines)
-                        AuditOrchestrator::orchestrate(product, pipelines)
+                        ProductAuditPipelineResolver::resolve(auditChecks)
+                              │ (filters app.audit_pipeline.product to enabled pipelines)
+                        ProductAuditOrchestrator::orchestrate(product, pipelines)
                               │ (per enabled pipeline)
                         Pipeline runs tagged specifications in priority order
                               │

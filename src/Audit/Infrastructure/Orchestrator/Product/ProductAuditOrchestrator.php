@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Audit\Infrastructure;
+namespace App\Audit\Infrastructure\Orchestrator\Product;
 
+use App\Audit\Domain\Orchestrator\AuditOrchestratorInterface;
 use App\Audit\Domain\Pipeline\AuditPipelineInterface;
 use App\Audit\Domain\Pipeline\AuditPipelineResult;
-use App\Audit\Domain\Service\AuditOrchestratorInterface;
 use App\Audit\Domain\ValueObject\AuditableObject;
 
-final class AuditOrchestrator implements AuditOrchestratorInterface
+final class ProductAuditOrchestrator implements AuditOrchestratorInterface
 {
     /**
      * @param list<AuditPipelineInterface> $pipelines

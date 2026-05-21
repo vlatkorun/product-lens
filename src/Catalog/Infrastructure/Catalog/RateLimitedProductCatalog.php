@@ -8,7 +8,6 @@ use App\Catalog\Domain\Service\ProductCatalogInterface;
 use App\Catalog\Domain\ValueObject\ProductFilter;
 use App\Catalog\Domain\ValueObject\ProductPageResult;
 use App\Catalog\Domain\ValueObject\ProductResult;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Catalog\Domain\ValueObject\SyncCursor;
 use App\Catalog\Infrastructure\Api\Exception\ShopifyThrottledException;
 use App\Catalog\Infrastructure\RateLimit\ShopifyCostEstimator;
@@ -16,6 +15,7 @@ use App\Shared\Application\RateLimit\ApiBudgetGuard;
 use App\Shared\Domain\RateLimit\BucketId;
 use App\Shared\Domain\RateLimit\Exception\RateLimitExceededException;
 use App\Shared\Domain\RateLimit\RequestCost;
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use Symfony\Component\DependencyInjection\Attribute\AsDecorator;
 use Symfony\Component\Uid\UuidV7;
 

@@ -7,8 +7,8 @@ namespace App\Catalog\Application\Command\ConfigureMonitoredCollection;
 use App\Catalog\Domain\Model\MonitoredCollection;
 use App\Catalog\Domain\Repository\MonitoredCollectionRepositoryInterface;
 use App\Catalog\Domain\ValueObject\MonitoredCollectionConfig;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Shared\Domain\ValueObject\AuditCheck;
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\UuidV7;
 

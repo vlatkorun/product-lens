@@ -27,3 +27,4 @@ framework:
             'App\Catalog\Application\Command\DispatchTenantsCollectionsSync\DispatchTenantsCollectionsSyncCommand': async
             'App\Catalog\Application\Command\AcquireTenantsCollectionsForSync\AcquireTenantsCollectionsForSyncCommand': async
             'App\Catalog\Application\Command\ProcessTenantCollectionSync\ProcessTenantCollectionSyncCommand': async
+            'App\Audit\Application\Command\Audit\Product\ProductAuditCommand': async

@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace App\Audit\Domain\ValueObject;
 
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use Symfony\Component\Uid\UuidV7;
 
 final readonly class AuditableProduct extends AuditableObject
 {
     /** @param list<ProductImage> $images */
     public function __construct(
-        UuidV7 $productId,
+        ShopifyGid $gid,
         UuidV7 $tenantId,
         private string $title,
         private array $images,
     ) {
-        parent::__construct($productId, $tenantId);
+        parent::__construct($gid, $tenantId);
     }
 
     public function title(): string

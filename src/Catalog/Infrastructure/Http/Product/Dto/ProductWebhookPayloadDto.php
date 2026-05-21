@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Catalog\Infrastructure\Http\Product\Dto;
 
 use App\Catalog\Application\Command\HandleWebhook\Dto\WebhookPayloadDtoInterface;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
+use App\Shared\Domain\ValueObject\ShopifyGid;
 
 final readonly class ProductWebhookPayloadDto implements WebhookPayloadDtoInterface
 {

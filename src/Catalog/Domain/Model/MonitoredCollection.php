@@ -7,11 +7,11 @@ namespace App\Catalog\Domain\Model;
 use App\Catalog\Domain\Event\CollectionMonitoringDisabled;
 use App\Catalog\Domain\Event\CollectionMonitoringEnabled;
 use App\Catalog\Domain\ValueObject\MonitoredCollectionConfig;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Catalog\Infrastructure\Persistence\DoctrineMonitoredCollectionRepository;
 use App\Shared\Domain\Model\AggregateRoot;
 use App\Shared\Domain\Model\TenantScopedInterface;
 use App\Shared\Domain\ValueObject\AuditCheck;
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\UuidV7;
 

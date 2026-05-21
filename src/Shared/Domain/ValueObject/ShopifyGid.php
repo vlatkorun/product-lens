@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Domain\ValueObject;
+namespace App\Shared\Domain\ValueObject;
 
 final readonly class ShopifyGid
 {
@@ -31,14 +31,18 @@ final readonly class ShopifyGid
 
     public function type(): string
     {
-        \preg_match('#^gid://shopify/([A-Za-z]+)/\d+$#', $this->value, $matches);
+        if (\preg_match('#^gid://shopify/([A-Za-z]+)/\d+$#', $this->value, $matches) !== 1) {
+            throw new \LogicException(\sprintf('Invariant violated: invalid Shopify GID: %s', $this->value));
+        }
 
         return $matches[1];
     }
 
     public function numericId(): string
     {
-        \preg_match('#^gid://shopify/[A-Za-z]+/(\d+)$#', $this->value, $matches);
+        if (\preg_match('#^gid://shopify/[A-Za-z]+/(\d+)$#', $this->value, $matches) !== 1) {
+            throw new \LogicException(\sprintf('Invariant violated: invalid Shopify GID: %s', $this->value));
+        }
 
         return $matches[1];
     }

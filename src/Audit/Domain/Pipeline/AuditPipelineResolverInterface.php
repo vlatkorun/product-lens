@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace App\Audit\Domain\Service;
+namespace App\Audit\Domain\Pipeline;
 
-use App\Audit\Domain\Pipeline\AuditPipelineInterface;
 use App\Shared\Domain\ValueObject\AuditCheck;
 
 interface AuditPipelineResolverInterface

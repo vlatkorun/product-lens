@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Catalog\Domain\Model;
 
 use App\Catalog\Domain\ValueObject\ProductStatus;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Shared\Domain\Model\TenantScopedInterface;
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\UuidV7;
 

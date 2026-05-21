@@ -7,8 +7,8 @@ namespace App\Catalog\Domain\Service;
 use App\Catalog\Domain\ValueObject\ProductFilter;
 use App\Catalog\Domain\ValueObject\ProductPageResult;
 use App\Catalog\Domain\ValueObject\ProductResult;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
 use App\Catalog\Domain\ValueObject\SyncCursor;
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use Symfony\Component\Uid\UuidV7;
 
 interface ProductCatalogInterface

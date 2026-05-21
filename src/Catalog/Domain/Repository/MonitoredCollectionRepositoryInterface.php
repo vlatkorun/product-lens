@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Catalog\Domain\Repository;
 
 use App\Catalog\Domain\Model\MonitoredCollection;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use Symfony\Component\Uid\UuidV7;
 
 interface MonitoredCollectionRepositoryInterface

@@ -4,23 +4,24 @@ declare(strict_types=1);
 
 namespace App\Audit\Domain\ValueObject;
 
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use Symfony\Component\Uid\UuidV7;
 
 final readonly class AuditableProductVariant extends AuditableObject
 {
     public function __construct(
-        UuidV7 $variantId,
-        private UuidV7 $productId,
+        ShopifyGid $gid,
+        private ShopifyGid $productGid,
         UuidV7 $tenantId,
         private string $title,
         private ?ProductImage $image,
     ) {
-        parent::__construct($variantId, $tenantId);
+        parent::__construct($gid, $tenantId);
     }
 
-    public function productId(): UuidV7
+    public function productGid(): ShopifyGid
     {
-        return $this->productId;
+        return $this->productGid;
     }
 
     public function title(): string

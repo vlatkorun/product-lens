@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace App\Audit\Domain\ValueObject;
 
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use Symfony\Component\Uid\UuidV7;
 
 abstract readonly class AuditableObject
 {
     public function __construct(
-        private UuidV7 $objectId,
+        private ShopifyGid $gid,
         private UuidV7 $tenantId,
     ) {
     }
 
-    public function objectId(): UuidV7
+    public function gid(): ShopifyGid
     {
-        return $this->objectId;
+        return $this->gid;
     }
 
     public function tenantId(): UuidV7

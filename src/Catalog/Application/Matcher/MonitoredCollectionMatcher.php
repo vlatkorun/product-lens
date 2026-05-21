@@ -6,7 +6,7 @@ namespace App\Catalog\Application\Matcher;
 
 use App\Catalog\Domain\Model\MonitoredCollection;
 use App\Catalog\Domain\Repository\MonitoredCollectionRepositoryInterface;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use Symfony\Component\Uid\UuidV7;
 
 final readonly class MonitoredCollectionMatcher

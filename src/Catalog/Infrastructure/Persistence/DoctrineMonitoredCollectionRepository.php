@@ -6,7 +6,7 @@ namespace App\Catalog\Infrastructure\Persistence;
 
 use App\Catalog\Domain\Model\MonitoredCollection;
 use App\Catalog\Domain\Repository\MonitoredCollectionRepositoryInterface;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
+use App\Shared\Domain\ValueObject\ShopifyGid;
 use App\Shared\Infrastructure\Event\DomainEventPublisher;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;

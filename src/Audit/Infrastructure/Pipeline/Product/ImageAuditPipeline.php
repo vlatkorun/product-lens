@@ -13,7 +13,7 @@ use App\Shared\Domain\ValueObject\AuditCheck;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
-#[AutoconfigureTag('app.audit_pipeline')]
+#[AutoconfigureTag('app.audit_pipeline.product')]
 final class ImageAuditPipeline implements AuditPipelineInterface
 {
     /** @param iterable<ProductSpecificationInterface> $specifications */
