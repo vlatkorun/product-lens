@@ -85,7 +85,7 @@ In-memory representation of a fetched Shopify product. Not an aggregate — no d
 | `DispatchTenantsCollectionsSyncCommand(criteria)` | **Targeted path** (`criteria.tenantIds` non-empty): dispatch `AcquireTenantsCollectionsForSyncCommand` immediately. **Paginated path** (`criteria.tenantIds` empty): call `ActiveTenantBatchClaimer` to claim up to 100 active tenants via keyset pagination, dispatch `AcquireTenantsCollectionsForSyncCommand` per batch, self-dispatch with advanced `lastTenantId` cursor until batch < 100 |
 | `AcquireTenantsCollectionsForSyncCommand(tenantIds, lastCollectionId)` | Call `TenantScopedMonitoredCollectionSyncClaimer` to claim up to 100 eligible collections for the given tenants, dispatch `ProcessTenantCollectionSyncCommand` + `TenantStamp` per claimed job, self-dispatch with advanced `lastCollectionId` cursor if batch was full |
 | `ProcessTenantCollectionSyncCommand(syncJobId)` | **Two-phase design** — Phase 1 (no lock): bail early if terminal, start if Pending, resolve collection, capture cursor, fire Shopify API call. On `RateLimitExceededException`: re-dispatch with `DelayStamp` (does not consume a Messenger retry counter). Phase 2 (tight transaction with pessimistic lock): CAS on `SyncCursor::same()` to discard stale pages; `recordPage()`; re-dispatch if `hasNextPage` |
-| `HandleWebhookCommand` | Receives Shopify product webhook — stub, not yet implemented |
+| `HandleProductCreateWebhookCommand` / `HandleProductUpdateWebhookCommand` / `HandleProductDeleteWebhookCommand` | One command per Shopify product webhook topic. Each command carries `(tenantId, ProductWebhookPayloadDto $payload)`; the payload implements `WebhookPayloadDtoInterface::gid(): string`. Create/Update resolve monitored collections from the payload and (TODO) dispatch the audit job; Delete is a logging stub for now. |
 | `RescheduleStuckTenantsCollectionsSyncCommand` | Find Pending jobs older than injected `$stuckThresholdMinutes` (default 5); re-dispatch `ProcessTenantCollectionSyncCommand` + `TenantStamp` for each |
 
 ### Transaction Scripts
@@ -171,9 +171,18 @@ ProcessTenantCollectionSyncHandler  [repeated until hasNextPage = false]
 ```
 POST /webhooks/shopify/{tenantId}/products
     → ShopifyWebhookValidator::validate() (HMAC-SHA256)
-    → HandleWebhookCommand(tenantId, gid, topic)
-        [not yet implemented]
+    → ProductWebhookController parses ProductWebhookPayloadDto from JSON body
+    → match (topic) → one of:
+          HandleProductCreateWebhookCommand(tenantId, payload)
+          HandleProductUpdateWebhookCommand(tenantId, payload)
+          HandleProductDeleteWebhookCommand(tenantId, payload)
+    → dispatched on the command bus
 ```
+
+**Convention.** Every webhook resource follows the same shape:
+1. A payload DTO in `Infrastructure/Http/{Resource}/Dto/{Resource}WebhookPayloadDto.php` implementing `App\Catalog\Application\Command\HandleWebhook\Dto\WebhookPayloadDtoInterface` (single method `gid(): string`).
+2. One command + handler pair per topic under `Application/Command/HandleWebhook/Handle{Resource}{Action}Webhook/`. Topic is encoded in the command type, not carried as a field.
+3. A resource-specific controller `match`-routes the `ShopifyWebhookTopic` to its concrete command. PHPStan flags unhandled cases via exhaustiveness on the enum.
 
 ### Reaper (every 2 min)
 

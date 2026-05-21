@@ -2,17 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Command\HandleWebhook;
+namespace App\Catalog\Application\Command\HandleWebhook\HandleProductDeleteWebhook;
 
-use App\Catalog\Domain\ValueObject\ShopifyWebhookTopic;
 use App\Catalog\Infrastructure\Http\Product\Dto\ProductWebhookPayloadDto;
 
-final readonly class HandleWebhookCommand
+final readonly class HandleProductDeleteWebhookCommand
 {
     public function __construct(
         public string $tenantId,
-        public string $shopifyObjectId,
-        public ShopifyWebhookTopic $topic,
         public ProductWebhookPayloadDto $payload,
     ) {
     }

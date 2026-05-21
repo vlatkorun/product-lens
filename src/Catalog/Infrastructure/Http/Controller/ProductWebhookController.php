@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Catalog\Infrastructure\Http\Controller;
 
-use App\Catalog\Application\Command\HandleWebhook\HandleWebhookCommand;
-use App\Catalog\Domain\ValueObject\ShopifyGid;
+use App\Catalog\Application\Command\HandleWebhook\HandleProductCreateWebhook\HandleProductCreateWebhookCommand;
+use App\Catalog\Application\Command\HandleWebhook\HandleProductDeleteWebhook\HandleProductDeleteWebhookCommand;
+use App\Catalog\Application\Command\HandleWebhook\HandleProductUpdateWebhook\HandleProductUpdateWebhookCommand;
 use App\Catalog\Domain\ValueObject\ShopifyWebhookTopic;
 use App\Catalog\Infrastructure\Http\Attribute\ValidateShopifySignature;
 use App\Catalog\Infrastructure\Http\Attribute\ValidateShopifyTopic;
@@ -32,9 +33,14 @@ final readonly class ProductWebhookController
         $payload = ProductWebhookPayloadDto::fromArray(
             \json_decode((string) $request->getContent(), true, 512, \JSON_THROW_ON_ERROR),
         );
-        $shopifyObjectId = ShopifyGid::product($payload->id)->value;
 
-        $this->commandBus->dispatch(new HandleWebhookCommand($tenantId, $shopifyObjectId, $topic, $payload));
+        $command = match ($topic) {
+            ShopifyWebhookTopic::ProductsCreate => new HandleProductCreateWebhookCommand($tenantId, $payload),
+            ShopifyWebhookTopic::ProductsUpdate => new HandleProductUpdateWebhookCommand($tenantId, $payload),
+            ShopifyWebhookTopic::ProductsDelete => new HandleProductDeleteWebhookCommand($tenantId, $payload),
+        };
+
+        $this->commandBus->dispatch($command);
 
         return new JsonResponse(null, Response::HTTP_OK);
     }

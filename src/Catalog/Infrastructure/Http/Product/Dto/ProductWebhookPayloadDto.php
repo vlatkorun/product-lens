@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Catalog\Infrastructure\Http\Product\Dto;
 
-final readonly class ProductWebhookPayloadDto
+use App\Catalog\Application\Command\HandleWebhook\Dto\WebhookPayloadDtoInterface;
+use App\Catalog\Domain\ValueObject\ShopifyGid;
+
+final readonly class ProductWebhookPayloadDto implements WebhookPayloadDtoInterface
 {
     /** @param list<string> $collectionIds */
     public function __construct(
@@ -26,5 +29,10 @@ final readonly class ProductWebhookPayloadDto
                 $collections,
             )),
         );
+    }
+
+    public function gid(): string
+    {
+        return ShopifyGid::product($this->id)->value;
     }
 }
